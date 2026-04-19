@@ -6,6 +6,7 @@ import {
   ArrowLeft, Clock, Droplets, Leaf, Share, Sparkles,
   Sun, Moon, CheckCircle, MapPin, ScanEye, Activity,
   ShieldCheck, Star, Zap, ChevronRight, MessageCircle,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";

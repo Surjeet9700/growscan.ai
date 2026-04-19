@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const { imageBase64 } = result.data;
+    const { imageBase64, context } = result.data;
     // We already checked startsWith("data:image") in the Zod schema
 
     // ── Pre-Scan Personalization (Context) ───────────────────────────────────

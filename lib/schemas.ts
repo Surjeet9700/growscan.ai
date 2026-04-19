@@ -9,6 +9,7 @@ export const ScanContextSchema = z.object({
 
 export const FreeAnalyseSchema = z.object({
   imageBase64: z.string().startsWith("data:image", { message: "Invalid image format" }),
+  context: ScanContextSchema.optional(),
 });
 
 export const FullAnalyseSchema = z.object({

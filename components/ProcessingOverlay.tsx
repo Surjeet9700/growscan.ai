@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Mail, Sparkles } from "lucide-react";
 
 const STAGES = [
   { text: "Analysing your skin zones...", sub: "Reading forehead & cheek patterns" },
