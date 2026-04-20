@@ -54,9 +54,9 @@ export function ProcessingOverlay({ isOpen }: { isOpen: boolean }) {
 
           {/* ── DIAGNOSTIC RINGS ── */}
           <div className="relative w-32 h-32 flex items-center justify-center mb-12">
-            <div className="ring-pulse ring-1 w-full h-full" />
-            <div className="ring-pulse ring-2" />
-            <div className="ring-pulse ring-3" />
+            <div className="ring-pulse pulse-ring-1 w-full h-full" />
+            <div className="ring-pulse pulse-ring-2" />
+            <div className="ring-pulse pulse-ring-3" />
             <div className="relative z-10 w-16 h-16 bg-white rounded-full shadow-xl flex items-center justify-center border border-black/5">
               <Sparkles className="w-8 h-8 text-amber-500" />
             </div>

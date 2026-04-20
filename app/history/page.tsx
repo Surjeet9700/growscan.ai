@@ -47,10 +47,36 @@ export default function HistoryPage() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("glowscan_history");
-      if (raw) setEntries(JSON.parse(raw));
-    } catch { /* no-op */ }
+    async function loadHistory() {
+      try {
+        // 1. Try DB fetch first
+        const res = await fetch("/api/history");
+        const data = await res.json();
+        
+        if (data.scans && data.scans.length > 0) {
+          const dbEntries = data.scans.map((s: any) => ({
+            id: s._id,
+            timestamp: new Date(s.createdAt).getTime(),
+            glow_score: s.result.glow_score,
+            skin_type: s.result.skin_type,
+            top_concern: s.result.top_concern,
+            preview_insight: s.result.preview_insight,
+            type: s.type
+          }));
+          setEntries(dbEntries);
+          return;
+        }
+
+        // 2. Fallback to LocalStorage if DB is empty/unauthenticated
+        const raw = localStorage.getItem("glowscan_history");
+        if (raw) setEntries(JSON.parse(raw));
+      } catch (err) {
+        console.error("History load error:", err);
+        const raw = localStorage.getItem("glowscan_history");
+        if (raw) setEntries(JSON.parse(raw));
+      }
+    }
+    loadHistory();
   }, []);
 
   const formatDate = (ts: number) =>

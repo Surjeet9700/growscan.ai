@@ -8,6 +8,7 @@ import Scan from "@/models/Scan";
 import type { FreeAnalysisResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FreeAnalyseSchema } from "@/lib/schemas";
+import { analyseWithOpenRouter } from "@/lib/openrouter";
 
 // NOTE: Cannot use Edge runtime here due to Mongoose (Node.js-only)
 // maxDuration keeps the serverless fn warm enough for analysis
@@ -33,8 +34,8 @@ Analyze the selfie provided. Focus ONLY on what is clearly visible — do not ha
 
 ## Your Task
 Produce a structured skin assessment for the FREE preview tier. This must be:
+- Diagnostic (tell them WHAT is wrong) rather than Prescriptive (telling them HOW to fix it).
 - Highly specific (mention actual observations, not generic statements)
-- Honest but encouraging (premium skincare brand tone)
 - Written for South/Southeast Asian skin tones (Fitzpatrick III–V) — these have different pigmentation patterns, acne tendencies, and aging markers than Caucasian skin
 
 ## Output Format
@@ -45,6 +46,8 @@ Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
   "skin_type_reason": "<1 precise sentence citing what you actually see>",
   "top_concern": "<The single most impactful visible issue — be specific>",
   "glow_score": <integer 1-10>,
+  "skin_age_estimate": <integer — be honest but conservative, +/- 2 years of apparent visual age>,
+  "primary_ingredient": "<the single most needed ingredient name — e.g. Vitamin C>",
   "preview_insight": "<1-2 sentences revealing ONE compelling but incomplete observation>",
   "face_zones": [
     { "zone": "forehead", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" },
@@ -54,8 +57,8 @@ Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
     { "zone": "chin", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" }
   ],
   "skin_tips": [
-    { "tip": "<1 actionable clear tip 8-20 words to address top concern>", "urgency": "daily" },
-    { "tip": "<1 actionable tip for weekly treatment>", "urgency": "weekly" },
+    { "tip": "<1 diagnostic tip 8-20 words describing the type of care needed WITHOUT naming specific ingredients>", "urgency": "daily" },
+    { "tip": "<1 diagnostic tip for weekly treatment category>", "urgency": "weekly" },
     { "tip": "<1 lifestyle change that improves skin health>", "urgency": "lifestyle" }
   ],
   "error": null
@@ -70,9 +73,10 @@ Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
 - skin_tips: provide exactly 3 tips, one for each urgency level (daily, weekly, lifestyle)
 - Keep all strings under 120 characters except preview_insight (max 220 chars)
 
-## Ingredient Naming Rules (IMPORTANT)
-If recommending an ingredient in top_concern or insights, use these standard names:
-- Salicylic Acid, Vitamin C, Niacinamide, Retinol, Hyaluronic Acid, Glycolic Acid, Ceramides, Azelaic Acid, Kojic Acid`;
+## Ingredient Naming Rules (FOR FREE TIER ONLY)
+- DO NOT mention specific ingredient names (Vitamin C, Retinol, etc.) in the `skin_tips`. Use general categories like "brightening serum", "exfoliating treatment", "repairing cream".
+- ONLY use the specific name in the `primary_ingredient` field (this creates the lock-out effect).
+- The `top_concern` should focus on the *condition* (e.g. "Hyper-pigmentation" or "Active Breakouts").`;
 
 async function runWithFallback(
   imageBase64: string,
@@ -125,6 +129,19 @@ async function runWithFallback(
       // Any other error (image invalid, JSON parse fail, etc.) — surface immediately
       throw err;
     }
+  }
+
+  // ─── FINAL FALLBACK: OpenRouter (Gemma 4 31B) ───
+  try {
+    console.warn("[Free Analysis] All Gemini models exhausted. Trying OpenRouter (Gemma 4 31B)...");
+    const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
+    const parsed = safeParseJSON<FreeAnalysisResult>(text);
+    
+    if (parsed && (parsed.skin_type || parsed.error)) {
+      return parsed;
+    }
+  } catch (orErr: any) {
+    console.error("[OpenRouter Fallback] Failed:", orErr.message);
   }
 
   const quotaErr = new Error("QUOTA_EXCEEDED");

@@ -17,13 +17,21 @@ export default function PrivacyPolicy() {
         <p className="text-sm">Last updated: {new Date().toLocaleDateString()}</p>
         
         <h2 className="text-xl font-bold text-ink pt-4">1. Information We Collect</h2>
-        <p>We collect face scans to provide AI-based skin analysis. We do NOT permanently store your images on our servers. Images are processed temporarily for the duration of the scan and then discarded. We collect basic account information via securely encrypted third-party providers (Clerk).</p>
+        <p>GlowScan collects facial analysis data to provide skincare insights. Highlights of our data handling:</p>
+        <ul className="list-disc ml-5 space-y-2 text-sm mt-2">
+          <li><strong>No Photo Storage</strong>: Your face photographs are processed in temporary server memory and permanently deleted within 30 seconds of the scan. We do NOT store your images.</li>
+          <li><strong>Progress Data</strong>: We store numerical skin metrics (scores and zone descriptors) in your browser's LocalStorage to allow you to track progress.</li>
+          <li><strong>Account Data</strong>: Basic identity information is managed securely via Clerk.</li>
+        </ul>
+
+        <h2 className="text-xl font-bold text-ink pt-4">2. Affiliate & Third-Party Disclosure</h2>
+        <p>GlowScan is a participant in the <strong>Cuelinks</strong> affiliate advertising program. We recommend skincare products based on your AI scan results. Clicking on these links may result in a commission for GlowScan at no additional cost to you. We do not share your facial data with these third-party merchants.</p>
         
-        <h2 className="text-xl font-bold text-ink pt-4">2. How We Use Your Information</h2>
-        <p>Your data is used entirely to formulate personalized skincare recommendations, track your skin progress over time (using metric data only), and process transactions. We do not sell your personal data.</p>
+        <h2 className="text-xl font-bold text-ink pt-4">3. How We Use Data</h2>
+        <p>Your data is used solely to generate personalized skin reports, provide product recommendations, and process payments via <strong>Razorpay</strong>. We never sell your personal metrics to third-party data brokers.</p>
         
-        <h2 className="text-xl font-bold text-ink pt-4">3. Data Security</h2>
-        <p>We implement a variety of security measures to maintain the safety of your personal information. Payment processing is handled by Razorpay securely.</p>
+        <h2 className="text-xl font-bold text-ink pt-4">4. Security</h2>
+        <p>We use industry-standard encryption to protect your account and transaction data. Since we do not store facial images, the risk of biometric data leaks is eliminated by design.</p>
       </div>
     </div>
   );

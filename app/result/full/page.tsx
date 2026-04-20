@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Clock, Droplets, Leaf, Share, Sparkles,
   Sun, Moon, CheckCircle, MapPin, ScanEye, Activity,
@@ -106,16 +106,23 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
         )}
         <div className="absolute inset-0 bg-black/10" />
 
-        {/* Zone dots — Fixed anatomical locations (Industry Standard) */}
+        {/* Zone dots — Dynamic bespoke positions from MediaPipe */}
         {zones.map((z) => {
-          const pos = ZONE_POSITIONS[z.zone];
-          if (!pos) return null;
+          const fallback = ZONE_POSITIONS[z.zone];
           const isActive = activeZone === z.zone;
+          
+          // Use detected coordinates if available, otherwise fallback to static standard
+          const left = z.x !== undefined ? `${z.x}%` : fallback?.left;
+          const top = z.y !== undefined ? `${z.y}%` : fallback?.top;
+          const label = fallback?.label || z.zone;
+
+          if (!left || !top) return null;
+
           return (
             <button
               key={z.zone}
               onClick={() => setActiveZone(isActive ? null : z.zone)}
-              style={{ top: pos.top, left: pos.left }}
+              style={{ top, left }}
               className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-all group"
             >
               <div className="flex flex-col items-center gap-0.5">
@@ -125,11 +132,11 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                     animate={{ scale: [1, 1.8], opacity: [0.3, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
                     className="absolute inset-0 rounded-full border-2"
-                    style={{ borderColor: severityColor[z.severity] }}
+                    style={{ borderColor: severityBorder[z.severity] }}
                   />
                   <div
                     className="w-3 h-3 rounded-full border-2 border-white shadow-lg relative z-20"
-                    style={{ backgroundColor: severityColor[z.severity] }}
+                    style={{ backgroundColor: severityBorder[z.severity] }}
                   />
                   
                   {isActive && (
@@ -144,7 +151,7 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                   )}
                 </div>
                 <span className="text-[7px] font-black tracking-widest uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] bg-black/30 px-1 rounded-sm">
-                  {pos.label}
+                  {label}
                 </span>
               </div>
             </button>
@@ -210,6 +217,58 @@ function ConcernBar({ name, value }: { name: string; value: string }) {
   );
 }
 
+const SAMPLE_REPORT = {
+  report: {
+    skin_type: "Combination",
+    skin_age_estimate: "24-26 years",
+    summary: "Your skin shows strong resilience with high hydration levels in the U-zone. We detected mild follicular congestion in the T-zone and early-stage oxidative stress markers around the orbital region. Overall health is optimal but requires targeted sebum control.",
+    concerns: {
+      pigmentation: "none",
+      acne_or_breakouts: "mild",
+      dark_circles: "mild",
+      pores: "moderate",
+      texture: "none",
+      hydration: "none",
+      oiliness: "moderate"
+    },
+    priority_ingredients: [
+      { ingredient: "Niacinamide (5%)", reason: "Effectively regulates sebum production in the T-zone while strengthening the lipid barrier." },
+      { ingredient: "Salicylic Acid (BHA)", reason: "Lipophilic action penetrates pores to dissolve keratin plugs and prevent future breakouts." },
+      { ingredient: "Hyaluronic Acid", reason: "Maintains transepidermal water levels and plumps fine lines in the dehydration-prone cheek zones." }
+    ],
+    morning_routine_order: [
+      "Gently cleanse with a pH-balanced foaming wash",
+      "Apply 2 drops of Niacinamide serum to T-zone",
+      "Layer a lightweight gel moisturizer",
+      "MANDATORY: Broad-spectrum SPF 50+"
+    ],
+    night_routine_order: [
+      "Double cleanse starting with a cleansing oil",
+      "Apply BHA exfoliant (3x per week)",
+      "Niacinamide serum (all over)",
+      "Soothing ceramide night cream"
+    ],
+    lifestyle_tips: [
+      "Increase dietary antioxidants (Vitamin C, E)",
+      "Sleep 7+ hours for optimal cellular repair",
+      "Wash pillowcases weekly to reduce bacterial load"
+    ],
+    strengths: [
+      "High elastic collagen density",
+      "Uniform melanin distribution",
+      "Robust skin barrier function"
+    ],
+    recheck_in_weeks: 4
+  },
+  face_zones: [
+    { zone: "forehead", issue: "Slight texture unevenness", severity: "mild" },
+    { zone: "nose", issue: "Visible sebaceous filaments", severity: "moderate" },
+    { zone: "left_cheek", issue: "Clear & Hydrated", severity: "none" },
+    { zone: "right_cheek", issue: "Clear & Hydrated", severity: "none" },
+    { zone: "chin", issue: "Minor hormonal congestion", severity: "mild" }
+  ]
+} as const;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FullResultPage() {
@@ -217,7 +276,16 @@ export default function FullResultPage() {
   const [image, setImage] = useState<string | null>(null);
   const router = useRouter();
 
+  const searchParams = useSearchParams();
+  const isSample = searchParams.get("sample") === "true";
+
   useEffect(() => {
+    if (isSample) {
+      setData(SAMPLE_REPORT.report);
+      setImage("/hero.png"); // Use hero as sample image
+      return;
+    }
+
     const raw = localStorage.getItem("glowscan_report");
     const img = localStorage.getItem("glowscan_image");
     if (!raw) { router.push("/"); return; }
@@ -228,7 +296,7 @@ export default function FullResultPage() {
     } catch {
       router.push("/");
     }
-  }, [router]);
+  }, [router, isSample]);
 
   if (!data) return (
     <div className="h-screen bg-background flex flex-col items-center justify-center">
@@ -255,10 +323,11 @@ export default function FullResultPage() {
     }
   };
 
-  // Build face_zones from free data if missing in full report
+  // Build face_zones from data or sample if missing
   const freeRaw = typeof window !== "undefined" ? localStorage.getItem("glowscan_free") : null;
-  let faceZones: FaceZone[] = [];
-  if (freeRaw) {
+  let faceZones: FaceZone[] = isSample ? (SAMPLE_REPORT.face_zones as unknown as FaceZone[]) : [];
+  
+  if (!isSample && freeRaw) {
     try { faceZones = JSON.parse(freeRaw).face_zones ?? []; } catch {}
   }
 

@@ -6,7 +6,8 @@ export interface FaceZone {
   zone: "forehead" | "left_cheek" | "right_cheek" | "nose" | "chin";
   issue: string;
   severity: FaceZoneSeverity;
-  coordinates?: { top: number; left: number };
+  x?: number; // 0-100%
+  y?: number; // 0-100%
 }
 
 export interface SkinTip {
@@ -22,6 +23,8 @@ export interface FreeAnalysisResult {
   preview_insight: string;
   face_zones: FaceZone[];
   skin_tips: SkinTip[];
+  skin_age_estimate?: number;
+  primary_ingredient?: string;
   error: string | null;
   timestamp?: number;
 }

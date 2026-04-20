@@ -10,6 +10,7 @@ import Scan from "@/models/Scan";
 import type { FullReportResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FullAnalyseSchema } from "@/lib/schemas";
+import { analyseWithOpenRouter } from "@/lib/openrouter";
 
 export const maxDuration = 60;
 
@@ -211,11 +212,21 @@ Patient Context:
     }
 
     if (!data) {
-      console.error("[Full analysis] All models exhausted:", lastError);
-      return NextResponse.json(
-        { error: "AI engine is at capacity. Payment is NOT charged. Please try again shortly." },
-        { status: 503 }
-      );
+      console.warn("[Full Analysis] Gemini exhausted. Trying OpenRouter (Gemma 4 31B)...");
+      try {
+        const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
+        data = safeParseJSON<FullReportResult>(text);
+        
+        if (!data.skin_type && !data.error) {
+          throw new Error("OpenRouter returned incomplete data");
+        }
+      } catch (orErr: any) {
+        console.error("[OpenRouter Fallback] All models exhausted:", orErr.message);
+        return NextResponse.json(
+          { error: "AI engine is at capacity. Payment is NOT charged. Please try again shortly." },
+          { status: 503 }
+        );
+      }
     }
 
     // No longer need to mark as used here, as it was done atomically above.

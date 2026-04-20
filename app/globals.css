@@ -174,9 +174,9 @@
   animation: diagnosticPulse 2.5s ease-in-out infinite;
 }
 
-.ring-1 { animation-delay: 0s; }
-.ring-2 { animation-delay: 0.5s; width: 140%; height: 140%; margin: -20%; }
-.ring-3 { animation-delay: 1.0s; width: 180%; height: 180%; margin: -40%; }
+.pulse-ring-1 { animation-delay: 0s; }
+.pulse-ring-2 { animation-delay: 0.5s; width: 140%; height: 140%; margin: -20%; }
+.pulse-ring-3 { animation-delay: 1.0s; width: 180%; height: 180%; margin: -40%; }
 
 .skeleton-premium {
   @apply relative overflow-hidden bg-[#f0ede8];

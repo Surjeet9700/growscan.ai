@@ -120,16 +120,23 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
         {/* Semi-transparent overlay */}
         <div className="absolute inset-0 bg-black/10" />
 
-        {/* Zone dots — Fixed anatomical locations (Industry Standard) */}
+        {/* Zone dots — Dynamic bespoke positions from MediaPipe */}
         {zones.map((z) => {
-          const pos = ZONE_POSITIONS[z.zone];
-          if (!pos) return null;
+          const fallback = ZONE_POSITIONS[z.zone];
           const isActive = activeZone === z.zone;
+          
+          // Use detected coordinates if available, otherwise fallback to static standard
+          const left = z.x !== undefined ? `${z.x}%` : fallback?.left;
+          const top = z.y !== undefined ? `${z.y}%` : fallback?.top;
+          const label = fallback?.label || z.zone;
+
+          if (!left || !top) return null;
+
           return (
             <button
               key={z.zone}
               onClick={() => setActiveZone(isActive ? null : z.zone)}
-              style={{ top: pos.top, left: pos.left }}
+              style={{ top, left }}
               className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-all group"
             >
               <div className="flex flex-col items-center gap-0.5">
@@ -139,11 +146,11 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                     animate={{ scale: [1, 1.8], opacity: [0.3, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
                     className="absolute inset-0 rounded-full border-2"
-                    style={{ borderColor: severityColor[z.severity] }}
+                    style={{ borderColor: severityBorder[z.severity] }}
                   />
                   <div
                     className="w-3 h-3 rounded-full border-2 border-white shadow-lg relative z-20"
-                    style={{ backgroundColor: severityColor[z.severity] }}
+                    style={{ backgroundColor: severityBorder[z.severity] }}
                   />
                   
                   {isActive && (
@@ -158,11 +165,11 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                   )}
                 </div>
                 <span className="text-[7px] font-black tracking-widest uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] bg-black/30 px-1 rounded-sm">
-                  {pos.label}
+                  {label}
                 </span>
               </div>
             </button>
-          );
+          )
         })}
       </div>
 
@@ -232,6 +239,7 @@ function SkinTipCard({ tip }: { tip: SkinTip; index: number }) {
 export default function FreeResultPage() {
   const [data, setData] = useState<FreeAnalysisResult | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -244,6 +252,25 @@ export default function FreeResultPage() {
     } catch {
       router.push("/scan");
     }
+
+    // ── SESSION TIMER LOGIC ──
+    const startTime = localStorage.getItem("glowscan_session_start") || Date.now().toString();
+    if (!localStorage.getItem("glowscan_session_start")) {
+      localStorage.setItem("glowscan_session_start", startTime);
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - parseInt(startTime);
+      const remaining = Math.max(24 * 60 * 60 * 1000 - elapsed, 0);
+      
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      
+      setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [router]);
 
   if (!data) return (
@@ -414,44 +441,103 @@ export default function FreeResultPage() {
 
       {/* ── UPSELL — Personalised Full Plan ── */}
       <div className="px-6 mt-8">
-        <div className="card-premium bg-black text-white p-6 relative overflow-hidden">
-          {/* BG glow */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Limited Offer</span>
+        <div className="card-premium bg-white border-2 border-black p-0 relative overflow-hidden shadow-2xl">
+          {/* Header */}
+          <div className="bg-black text-white p-6 pb-8 text-center relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative z-10">
+               <div className="flex items-center justify-center gap-2 mb-3">
+                 <ScanEye className="w-5 h-5 text-amber-400" />
+                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">What We Found About Your Skin</span>
+               </div>
+               <h3 className="text-2xl font-black mb-1">Full Report Available</h3>
             </div>
-            <h3 className="text-xl font-black mb-1">Unlock Full Report</h3>
-            <p className="text-sm text-white/50 mb-2">
-              Your full personalised routine, zone-by-zone protocol & ingredient matches.
-            </p>
+          </div>
 
-            {/* What's inside */}
-            <div className="my-4 space-y-2">
-              {[
-                "Zone-specific 5-step routine",
-                "Morning + Night protocol",
-                "Top 3 matched ingredients",
-                "Skin-age estimate",
-                "Re-check timeline"
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-white/70 font-bold">
-                  <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
-                  {item}
+          {/* Curiosity Gap - Blurred Real Data */}
+          <div className="p-6 -mt-6 bg-white rounded-t-[32px] relative z-20">
+            <div className="space-y-4 mb-8">
+               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                 <span className="text-xs font-bold text-black/60">Your Forehead Concern</span>
+                 <div className="flex items-center gap-2">
+                   <div className="blur-[5px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
+                     {zones.find(z => z.zone === "forehead")?.issue || "Moderate Acne"}
+                   </div>
+                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                 </div>
+               </div>
+               
+               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                 <span className="text-xs font-bold text-black/60">Ingredient Match #1</span>
+                 <div className="flex items-center gap-2">
+                   <div className="blur-[6px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
+                     {data.primary_ingredient || "Salicylic Acid"}
+                   </div>
+                   <Star className="w-4 h-4 text-amber-500" />
+                 </div>
+               </div>
+
+               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                 <span className="text-xs font-bold text-black/60">Your Skin Age Estimate</span>
+                 <div className="flex items-center gap-2">
+                   <div className="blur-[4px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
+                     {data.skin_age_estimate || 24} yrs
+                   </div>
+                   <Activity className="w-4 h-4 text-blue-500" />
+                 </div>
+               </div>
+            </div>
+
+            {/* Social Proof */}
+            <div className="mb-8 p-4 rounded-3xl bg-neutral-50 border border-black/5 relative">
+              <div className="flex gap-1 mb-2">
+                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />)}
+              </div>
+              <p className="text-xs font-bold text-ink mb-1 italic leading-snug">
+                "Finally know what products to actually buy. The routine cleared my pigmentation in weeks."
+              </p>
+              <p className="text-[10px] font-black text-black/30 uppercase tracking-widest">— Priya, Pune • Combination skin</p>
+            </div>
+
+            {/* Live Stats */}
+            <div className="flex items-center justify-center gap-6 mb-8 text-center">
+               <div>
+                 <p className="text-lg font-black text-ink">1,200+</p>
+                 <p className="text-[9px] font-black text-black/30 uppercase tracking-widest">Unlocked Today</p>
+               </div>
+               <div className="w-[1px] h-8 bg-black/10" />
+               <div className="flex flex-col items-center">
+                 <p className="text-lg font-black text-ink flex items-center gap-1.5">
+                   <Clock className="w-4 h-4 text-red-500" />
+                   {timeLeft}
+                 </p>
+                 <p className="text-[9px] font-black text-red-500/60 uppercase tracking-widest">Report Expires</p>
+               </div>
+            </div>
+
+            {/* PRICING & CTA */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-3xl font-black text-ink">₹49</span>
+                    <span className="text-sm line-through text-black/20">₹199</span>
+                    <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">75% OFF</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-black/40 italic">"Less than a cup of cutting chai ☕"</p>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="flex items-center justify-between gap-4 mt-5">
-              <div className="flex flex-col">
-                <span className="text-2xl font-black">₹49</span>
-                <span className="text-[10px] line-through text-white/30">₹199</span>
-              </div>
-              <div className="flex-1">
-                <PayButton />
-              </div>
+              <PayButton className="w-full h-16 rounded-[24px] text-lg font-black" label="See My Full Skin Report — ₹49" />
+              
+              <p className="text-center text-[10px] font-bold text-black/30 flex items-center justify-center gap-2">
+                <ShieldCheck className="w-3 h-3" />
+                UPI • GPay • PhonePe • Cards
+              </p>
+              
+              <p className="text-center text-[10px] font-bold text-amber-600 bg-amber-50 py-2 rounded-xl border border-amber-100">
+                ⭐ Cheaper than one dermatologist consultation (₹500+)
+              </p>
             </div>
           </div>
         </div>

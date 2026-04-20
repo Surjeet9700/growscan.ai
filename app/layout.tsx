@@ -18,14 +18,15 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
-  title: "GlowScan — AI Skin Analyser",
-  description: "Get a clinical-grade face scan and personalized skincare routine in 30 seconds.",
+  metadataBase: new URL("https://glowscans-ai.vercel.app"),
+  title: "GlowScan — AI Skin Analyser | Clinical Grade Screening",
+  description: "Advanced AI face scan for clinical-grade skin analysis. Detect concerns, calculate your Glow Score, and get a personalized routine in 30 seconds.",
+  keywords: ["AI Skin Analysis", "Face Scan", "Skincare Routine", "Fitzpatrick Scale", "Dermatologist AI", "Skin Health Metrics", "Clinical Skin Screening", "AI Dermatology", "Skin Condition Analysis"],
   manifest: "/manifest.json",
   openGraph: {
     title: "GlowScan — AI Skin Analyser",
-    description: "Get a clinical-grade face scan and personalized skincare routine in 30 seconds.",
-    url: "https://glowscan.app", // User will need to change this if domain different
+    description: "Advanced AI face scan for clinical-grade skin analysis.",
+    url: "https://glowscans-ai.vercel.app",
     siteName: "GlowScan",
     images: [{ url: "/icon-512.png", width: 512, height: 512 }],
     locale: "en_US",
@@ -54,6 +55,26 @@ export default async function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" data-scroll-behavior="smooth">
+        <head>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                "name": "GlowScan",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "All",
+                "description": "AI-powered clinical skin diagnostics and personalized skincare planning.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "199.00",
+                  "priceCurrency": "INR"
+                }
+              })
+            }}
+          />
+        </head>
         <body className={outfit.className}>
           <div className="flex flex-col min-h-[100dvh] w-full max-w-md mx-auto relative bg-background shadow-2xl overflow-x-hidden">
             {/* Minimal Sticky Header */}
@@ -62,15 +83,11 @@ export default async function RootLayout({
                 <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center group-active:scale-95 transition-transform">
                   <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
                 </div>
-                <h1 className="text-xl font-black tracking-tighter text-primary">GLOW</h1>
+                <h1 className="text-xl font-black tracking-tighter text-primary">GLOWSCAN</h1>
               </Link>
               <div className="flex items-center gap-3">
                 {!userId ? (
-                  <SignInButton mode="modal">
-                    <button className="text-sm font-bold bg-black text-white px-4 py-2 rounded-full active:scale-95 transition-all">
-                      Sign In
-                    </button>
-                  </SignInButton>
+                  <SignInButton mode="modal"><span className="text-sm font-bold bg-black text-white px-4 py-2 rounded-full active:scale-95 transition-all cursor-pointer">Sign In</span></SignInButton>
                 ) : (
                   <UserButton
                     appearance={{

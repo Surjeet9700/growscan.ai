@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,7 +39,15 @@ export default function ScanPage() {
   
   const [analyzing, setAnalyzing] = useState(false);
   const [stage, setStage] = useState(0);
+  const [detectorReady, setDetectorReady] = useState(false);
   const router = useRouter();
+
+  // ── PRE-LOAD MODELS ───────────────────────────────────────────────
+  useEffect(() => {
+    import("@/lib/faceDetector").then(({ preloadFaceDetector }) => {
+      preloadFaceDetector().then(() => setDetectorReady(true));
+    }).catch(console.error);
+  }, []);
 
   const cycleStages = () => {
     let i = 0;
@@ -57,26 +65,74 @@ export default function ScanPage() {
     const intervalId = cycleStages();
 
     try {
-      const response = await fetch("/api/analyse/free", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          imageBase64: base64String,
-          context: qData
-        }),
+      // 1. Prepare Image Element for MediaPipe detection
+      const img = new Image();
+      const imageLoadPromise = new Promise<HTMLImageElement>((resolve) => {
+        img.onload = () => resolve(img);
+        img.src = base64String;
       });
 
-      const data = await response.json();
+      // 2. Run Analysis & Detection in Parallel
+      const [analysisResult, detectionResult] = await Promise.allSettled([
+        // Gemini Analysis (Backend)
+        fetch("/api/analyse/free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            imageBase64: base64String,
+            context: qData
+          }),
+        }).then(res => res.json()),
 
-      if (!response.ok || data.error) {
-        throw new Error(data?.error ?? "Analysis failed");
+        // MediaPipe Landmarks (Client-side)
+        imageLoadPromise.then(imageEl => 
+          import("@/lib/faceDetector").then(m => m.detectZonePositions(imageEl))
+        )
+      ]);
+
+      // 3. Handle Analysis Response
+      if (analysisResult.status === "rejected") {
+        throw new Error("Cloud analysis failed");
+      }
+      const data = analysisResult.value;
+      if (data.error) throw new Error(data.error);
+
+      // 4. Handle Detection Result (Silent Fallback if fails)
+      const bespokeZones = detectionResult.status === "fulfilled" ? detectionResult.value : null;
+
+      // 5. Merge coordinates into results or use Fallback
+      if (bespokeZones && data.face_zones) {
+        data.face_zones = data.face_zones.map((zone: any) => {
+          const coords = (bespokeZones as any)[zone.zone];
+          return coords ? { ...zone, x: coords.x, y: coords.y } : zone;
+        });
       }
 
       clearInterval(intervalId);
       localStorage.setItem("glowscan_image", base64String);
       localStorage.setItem("glowscan_free", JSON.stringify({ ...data, timestamp: Date.now() }));
 
-      // History
+      // 6. DB History Persistence (Privacy-first: No images)
+      try {
+        await fetch("/api/history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+             type: "free",
+             result: {
+                glow_score: data.glow_score,
+                skin_type: data.skin_type,
+                top_concern: data.top_concern,
+                face_zones: data.face_zones, // Contains high-precision x/y points
+                preview_insight: data.preview_insight
+             }
+          })
+        });
+      } catch (dbErr) {
+        console.error("DB Save failed, falling back to LocalStorage:", dbErr);
+      }
+
+      // 7. LocalStorage Fallback (Legacy/Guest)
       try {
         const prev = JSON.parse(localStorage.getItem("glowscan_history") ?? "[]");
         const updated = [{
@@ -85,6 +141,7 @@ export default function ScanPage() {
           glow_score: data.glow_score,
           skin_type: data.skin_type,
           top_concern: data.top_concern,
+          preview_insight: data.preview_insight,
         }, ...prev].slice(0, 20);
         localStorage.setItem("glowscan_history", JSON.stringify(updated));
       } catch {}
@@ -206,7 +263,9 @@ export default function ScanPage() {
               <CameraCapture onCaptureAction={handleCapture} disabled={analyzing} />
             </motion.div>
           )}
+        </AnimatePresence>
 
+        <AnimatePresence>
           {analyzing && (
             <motion.div
               key="analyzing-overlay"
@@ -223,7 +282,7 @@ export default function ScanPage() {
                </div>
                <h3 className="text-xl font-black text-ink mb-2">Neural Analysis</h3>
                <p className="text-sm text-black/40 font-bold uppercase tracking-widest animate-pulse">
-                  {STAGES[stage]}
+                  {!detectorReady && stage === 0 ? "Preparing AI Scanner..." : STAGES[stage]}
                </p>
             </motion.div>
           )}

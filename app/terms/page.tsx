@@ -17,13 +17,16 @@ export default function TermsConditions() {
         <p className="text-sm">Last updated: {new Date().toLocaleDateString()}</p>
         
         <h2 className="text-xl font-bold text-ink pt-4">1. Acceptance of Terms</h2>
-        <p>By accessing and using GlowScan, you accept and agree to be bound by the terms and provision of this agreement. Our skin analysis relies on an AI model; results are purely informational and should NOT be taken as medical advice.</p>
+        <p>By using GlowScan, you agree to these terms. Our skin analysis is powered by Artificial Intelligence and is for <strong>educational purposes only</strong>. It is not a clinical diagnosis.</p>
         
-        <h2 className="text-xl font-bold text-ink pt-4">2. Service Description</h2>
-        <p>GlowScan provides a digital analysis of the user's face mapping hydration, texture, and concerns utilizing computer vision AI. Standard scans are free, whereas detailed clinical-grade metric reports require a one-time purchase.</p>
+        <h2 className="text-xl font-bold text-ink pt-4">2. Medical Disclaimer</h2>
+        <p>GlowScan is NOT a medical device. Results should not be used for medical diagnosis, treatment, or prevention of skin diseases. Always consult a board-certified dermatologist for medical skin concerns. You use the information provided at your own risk.</p>
         
-        <h2 className="text-xl font-bold text-ink pt-4">3. Medical Disclaimer</h2>
-        <p>The GlowScan service is NOT a substitute for professional dermatological advice, diagnosis, or treatment. Always seek the advice of your physician or qualified health provider.</p>
+        <h2 className="text-xl font-bold text-ink pt-4">3. Affiliate Links & Recommendations</h2>
+        <p>GlowScan provides curated skincare recommendations. Some links to third-party stores (like Amazon, Myntra, or Nykaa) are affiliate links managed via <strong>Cuelinks</strong>. We earn a commission on qualifying purchases. We are not responsible for the products, delivery, or transactions occurring on third-party websites.</p>
+
+        <h2 className="text-xl font-bold text-ink pt-4">4. Digital Services</h2>
+        <p>Premium Scan Reports are delivered instantly upon payment verification. Access to these reports is tied to your account and local browser cache. We reserve the right to modify the AI models and reporting structure at any time.</p>
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ declare global {
   }
 }
 
-export function PayButton() {
+export function PayButton({ className, label }: { className?: string; label?: string }) {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
@@ -160,7 +160,7 @@ export function PayButton() {
       <button
         onClick={handlePayment}
         disabled={loading || processing}
-        className="w-full h-12 bg-white text-black rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+        className={className || "w-full h-12 bg-white text-black rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"}
       >
         {loading ? (
           <>
@@ -170,7 +170,7 @@ export function PayButton() {
         ) : (
           <>
             <Lock className="w-4 h-4" />
-            Unlock Full Report — ₹49
+            {label || "Unlock Full Report — ₹49"}
           </>
         )}
       </button>

@@ -1,0 +1,8 @@
+# robots.txt for GlowScan
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /sign-in
+Disallow: /sign-up
+
+Sitemap: https://glowscans-ai.vercel.app/sitemap.xml
