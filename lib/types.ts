@@ -6,6 +6,7 @@ export interface FaceZone {
   zone: "forehead" | "left_cheek" | "right_cheek" | "nose" | "chin";
   issue: string;
   severity: FaceZoneSeverity;
+  score: number; // 1-10 health index
   x?: number; // 0-100%
   y?: number; // 0-100%
 }

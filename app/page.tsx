@@ -33,17 +33,17 @@ const DAILY_TIPS = [
 ];
 
 const FAQS = [
-  {
-    q: "How accurate is the AI scan?",
-    a: "GlowScan uses computer vision models with 95% detection accuracy in natural lighting. It's designed for educational screening and tracking, not clinical diagnosis."
+  { 
+    q: "How accurate is the AI?", 
+    a: "GlowScan uses high-fidelity vision models with 95% detection accuracy in balanced lighting. It is optimized for tracking skin health trends over time."
   },
-  {
-    q: "Are my photos stored privately?",
-    a: "We prioritize your privacy. Images are processed in server memory for 30s and then permanently deleted. We do not store your face photos on our servers."
+  { 
+    q: "Is my data private?", 
+    a: "Absolutely. Images are processed in server-memory and instantly deleted. Your face biometric data is never stored on any persistent server."
   },
-  {
-    q: "What's in the Full Report?",
-    a: "You get a deep-dive into 5 face zones, clinical severity metrics (Acne, Pores, Texture), and a routine mapped to specific ingredients like Retinol & Niacinamide."
+  { 
+    q: "What is in the Full Plan?", 
+    a: "You unlock clinical-grade metrics for 5 facial zones, ingredient-based routine mapping, and active progress tracking of your dermal health index."
   }
 ];
 
@@ -63,12 +63,12 @@ function HealthCard({
           <ScanFace className="w-8 h-8 text-black/15" />
         </div>
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-black/30 mb-1">
-            Skin Health Score
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-black/30 mb-1">
+            Face Health Index
           </p>
-          <p className="text-base font-black text-ink">No scan yet</p>
-          <p className="text-xs text-black/35 font-medium mt-0.5">
-            Use the banner below to get started
+          <p className="text-base font-black text-ink">No Data Available</p>
+          <p className="text-[11px] text-black/35 font-medium mt-0.5">
+            Initialize your first scan below
           </p>
         </div>
       </div>
@@ -82,8 +82,8 @@ function HealthCard({
     <Link href="/result/free">
       <div className="card-premium flex items-center justify-between gap-4 active:scale-[0.99] transition-transform cursor-pointer">
         <div className="flex-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-black/35 mb-1">
-            Skin Health Score
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-black/35 mb-1">
+            Skin Health Index
           </p>
           <div className="flex items-baseline gap-1.5">
             <span className="text-5xl font-black text-ink">{pct}</span>
@@ -199,8 +199,8 @@ export default function HomePage() {
                   <Sparkles className="w-4 h-4 text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/35">Unlocked</p>
-                  <p className="text-sm font-black">View Full Report</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/35">Authorized Access</p>
+                  <p className="text-sm font-black">View Full Diagnostic Report</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-white/30" />
@@ -234,10 +234,10 @@ export default function HomePage() {
                   AI Skin Analysis
                 </p>
                 <h3 className="text-[22px] font-black leading-tight">
-                  {hasScan ? "Scan Again" : "Start Your Scan"}
+                  {hasScan ? "Relaunch Scan" : "Analyze My Skin"}
                 </h3>
-                <p className="text-xs text-white/50 font-medium mt-0.5">
-                  {hasScan ? "Track your skin progress" : "Know your skin in 30 seconds"}
+                <p className="text-xs text-white/60 font-medium mt-0.5">
+                  {hasScan ? "Monitor your skin trajectory" : "Get your profile in 30 seconds"}
                 </p>
               </div>
 
@@ -257,10 +257,10 @@ export default function HomePage() {
           className="px-6 mt-5"
         >
           <div className="flex items-center justify-between mb-3 px-1">
-            <h4 className="text-sm font-black text-ink">Last Scan</h4>
+            <h4 className="text-sm font-black text-ink">Recent Assessment</h4>
             <Link href="/result/free">
-              <span className="text-[10px] font-black text-black/35 flex items-center gap-0.5 uppercase tracking-widest">
-                Details <ChevronRight className="w-3 h-3" />
+              <span className="text-[10px] font-black text-black/35 flex items-center gap-0.5 uppercase tracking-[0.15em]">
+                Review Assessment <ChevronRight className="w-3 h-3" />
               </span>
             </Link>
           </div>
@@ -284,8 +284,8 @@ export default function HomePage() {
         className="px-6 mt-5"
       >
         <div className="flex items-center justify-between mb-3 px-1">
-          <h4 className="text-sm font-black text-ink">Expert Insights</h4>
-          <span className="text-[10px] font-black text-black/30 uppercase tracking-widest">Science based</span>
+          <h4 className="text-sm font-black text-ink">Daily Glow Tips</h4>
+          <span className="text-[10px] font-black text-black/30 uppercase tracking-[0.15em]">Dermatological Logic</span>
         </div>
         <div className="space-y-3">
           {DAILY_TIPS.map((tip, i) => (

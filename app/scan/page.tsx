@@ -17,7 +17,7 @@ const CameraCapture = dynamic(
       <div className="w-full max-w-sm mx-auto aspect-[3/4] bg-neutral-100 rounded-[40px] flex items-center justify-center border-8 border-white shadow-xl">
         <div className="text-center space-y-3">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-black/20" />
-          <p className="text-xs font-black uppercase tracking-widest text-black/40">Initializing Lens...</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-black/40">Activating Scanner...</p>
         </div>
       </div>
     ),
@@ -25,11 +25,11 @@ const CameraCapture = dynamic(
 );
 
 const STAGES = [
-  "Detecting face structure...",
-  "Reading skin texture...",
-  "Mapping hydration zones...",
-  "Checking pores & pigmentation...",
-  "Generating your report...",
+  "Setting up secure scan...",
+  "Checking lighting balance...",
+  "Analyzing skin texture...",
+  "Evaluating skin clarity...",
+  "Generating your plan...",
 ];
 
 export default function ScanPage() {
@@ -72,36 +72,32 @@ export default function ScanPage() {
         img.src = base64String;
       });
 
-      // 2. Run Analysis & Detection in Parallel
-      const [analysisResult, detectionResult] = await Promise.allSettled([
-        // Gemini Analysis (Backend)
-        fetch("/api/analyse/free", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            imageBase64: base64String,
-            context: qData
-          }),
-        }).then(res => res.json()),
+      // 2. STAGE 1: Client-Side "Circuit Breaker" (Fast Feedback)
+      const imageEl = await imageLoadPromise;
+      const bespokeZones = await import("@/lib/faceDetector").then(m => m.detectZonePositions(imageEl));
 
-        // MediaPipe Landmarks (Client-side)
-        imageLoadPromise.then(imageEl => 
-          import("@/lib/faceDetector").then(m => m.detectZonePositions(imageEl))
-        )
-      ]);
-
-      // 3. Handle Analysis Response
-      if (analysisResult.status === "rejected") {
-        throw new Error("Cloud analysis failed");
+      if (!bespokeZones) {
+        throw new Error("LOW_SIGNAL_QUALITY");
       }
-      const data = analysisResult.value;
-      if (data.error) throw new Error(data.error);
 
-      // 4. Handle Detection Result (Silent Fallback if fails)
-      const bespokeZones = detectionResult.status === "fulfilled" ? detectionResult.value : null;
+      // 3. STAGE 2: Cloud Analysis (Guarded by Success of Stage 1)
+      const analysisResult = await fetch("/api/analyse/free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          imageBase64: base64String,
+          context: qData
+        }),
+      }).then(res => res.json());
 
-      // 5. Merge coordinates into results or use Fallback
-      if (bespokeZones && data.face_zones) {
+      if (analysisResult.error) {
+        throw new Error(analysisResult.error);
+      }
+      
+      const data = analysisResult;
+
+      // 4. Merge coordinates into results
+      if (data.face_zones) {
         data.face_zones = data.face_zones.map((zone: any) => {
           const coords = (bespokeZones as any)[zone.zone];
           return coords ? { ...zone, x: coords.x, y: coords.y } : zone;
@@ -150,7 +146,12 @@ export default function ScanPage() {
 
     } catch (error: any) {
       clearInterval(intervalId);
-      toast.error("Analysis Failed", { description: error.message });
+      
+      const message = error.message === "LOW_SIGNAL_QUALITY" 
+        ? "Face not detected. Please ensure you are in a bright room and holding the phone steady."
+        : error.message;
+
+      toast.error("Analysis Blocked", { description: message });
       setAnalyzing(false);
     }
   };
@@ -170,9 +171,9 @@ export default function ScanPage() {
       </div>
 
       <div className="px-6 pt-8 pb-6 text-center">
-        <h1 className="text-3xl font-black text-ink">Skin Scan</h1>
-        <p className="text-black/40 font-medium mt-1">
-          {analyzing ? STAGES[stage] : "Align your face within the markers"}
+        <h1 className="text-3xl font-black text-ink">Skin Assessment</h1>
+        <p className="text-[11px] text-black/40 font-bold uppercase tracking-[0.1em] mt-1">
+          {analyzing ? STAGES[stage] : "Position your face within the frame"}
         </p>
       </div>
 
@@ -280,9 +281,9 @@ export default function ScanPage() {
                      </div>
                   </div>
                </div>
-               <h3 className="text-xl font-black text-ink mb-2">Neural Analysis</h3>
-               <p className="text-sm text-black/40 font-bold uppercase tracking-widest animate-pulse">
-                  {!detectorReady && stage === 0 ? "Preparing AI Scanner..." : STAGES[stage]}
+               <h3 className="text-xl font-black text-ink mb-2">Deep AI Analysis</h3>
+               <p className="text-[10px] text-black/40 font-black uppercase tracking-[0.2em] animate-pulse">
+                  {!detectorReady && stage === 0 ? "Synchronizing AI..." : STAGES[stage]}
                </p>
             </motion.div>
           )}

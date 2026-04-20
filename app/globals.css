@@ -84,9 +84,16 @@
 }
 
 @layer components {
-  /* Centralised Premium Styles */
+  /* ── Boris Lux Design System ── */
   .card-premium {
-    @apply bg-card border border-border shadow-sm rounded-[32px] p-6 hover:shadow-md transition-all duration-300;
+    @apply bg-card border border-black/[0.03] rounded-[32px] p-6 transition-all duration-500 ease-out;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02), 0 2px 4px -2px rgb(0 0 0 / 0.02), 0 20px 40px -12px rgb(0 0 0 / 0.03);
+  }
+
+  .card-premium:hover {
+    @apply border-black/[0.06];
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.03), 0 4px 6px -4px rgb(0 0 0 / 0.03), 0 25px 50px -12px rgb(0 0 0 / 0.04);
+    transform: translateY(-2px);
   }
 
   .card-glass {
@@ -94,7 +101,7 @@
   }
 
   .btn-black {
-    @apply h-14 px-8 rounded-full bg-black text-white font-black text-base flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg hover:shadow-black/10;
+    @apply h-14 px-8 rounded-full bg-black text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-black/5 hover:shadow-black/10 hover:bg-neutral-800;
   }
 
   .btn-glass {
@@ -102,11 +109,11 @@
   }
 
   .text-ink {
-    @apply text-foreground font-black tracking-tight;
+    @apply text-foreground font-black tracking-tighter; /* Boris Tighter Tracking */
   }
 
   .pill-status {
-    @apply px-3 py-1 rounded-full bg-white/80 backdrop-blur-md border border-black/5 text-[10px] font-black uppercase tracking-widest text-black/60 shadow-sm;
+    @apply px-3 py-1 rounded-full bg-white/90 backdrop-blur-md border border-black/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-black/50 shadow-[0_2px_10px_rgba(0,0,0,0.02)];
   }
 }
 

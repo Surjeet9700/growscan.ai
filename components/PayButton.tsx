@@ -39,7 +39,7 @@ declare global {
   }
 }
 
-export function PayButton({ className, label }: { className?: string; label?: string }) {
+export function PayButton({ className, label, isDiscounted = false }: { className?: string; label?: string; isDiscounted?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
@@ -58,7 +58,11 @@ export function PayButton({ className, label }: { className?: string; label?: st
 
     try {
       // 1. Create Razorpay order
-      const orderRes = await fetch("/api/payment/create-order", { method: "POST" });
+      const orderRes = await fetch("/api/payment/create-order", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: isDiscounted ? "flash_sale" : "standard" })
+      });
       if (!orderRes.ok) throw new Error("Could not initialize payment");
       const { orderId } = await orderRes.json();
 
@@ -71,7 +75,7 @@ export function PayButton({ className, label }: { className?: string; label?: st
       // 2. Open Razorpay checkout dialog
       const options: RazorpayOptions = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: 4900,
+        amount: isDiscounted ? 2900 : 4900,
         currency: "INR",
         name: "GlowScan",
         description: "Full Skin Analysis Report",
@@ -170,7 +174,7 @@ export function PayButton({ className, label }: { className?: string; label?: st
         ) : (
           <>
             <Lock className="w-4 h-4" />
-            {label || "Unlock Full Report — ₹49"}
+            {label || (isDiscounted ? "Unlock Full Report — ₹29" : "Unlock Full Report — ₹49")}
           </>
         )}
       </button>

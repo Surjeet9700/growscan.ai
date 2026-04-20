@@ -50,11 +50,11 @@ Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
   "primary_ingredient": "<the single most needed ingredient name — e.g. Vitamin C>",
   "preview_insight": "<1-2 sentences revealing ONE compelling but incomplete observation>",
   "face_zones": [
-    { "zone": "forehead", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" },
-    { "zone": "left_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" },
-    { "zone": "right_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" },
-    { "zone": "nose", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" },
-    { "zone": "chin", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>" }
+    { "zone": "forehead", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
+    { "zone": "left_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
+    { "zone": "right_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
+    { "zone": "nose", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
+    { "zone": "chin", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> }
   ],
   "skin_tips": [
     { "tip": "<1 diagnostic tip 8-20 words describing the type of care needed WITHOUT naming specific ingredients>", "urgency": "daily" },
@@ -66,7 +66,9 @@ Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
 
 ## Rules
 - If the image is too blurry, poorly lit, or no face is visible: return {"error": "Image quality too low. Please retake in natural light facing the camera.", ...rest null/0}
-- glow_score: 1 = very dull/problematic, 5 = average, 8+ = genuinely healthy and radiant — be honest, most people score 4-7
+- glow_score: 1 = very dull/problematic, 9+ = genuinely radiant — most people score 5-7
+- zone_scores: 10 = perfect health, <5 = significant concern.
+- Identify the WORST zone and ensure its score is at least 2 points lower than the best zone to highlight the health delta.
 - preview_insight must tease the full report without giving away the routine or ingredient recommendations
 - Never use the words "I", "we", "our" — write in third-person clinical tone
 - face_zones: include ALL 5 zones. If a zone looks healthy, set severity to "none" and issue to "clear"
@@ -105,7 +107,16 @@ async function runWithFallback(
         },
       });
 
-      const result = await model.generateContent([finalPrompt, imageData]);
+      // Boris: Latency Budgeting — 10s maximum for model generation
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 10000)
+      );
+
+      const result = await Promise.race([
+        model.generateContent([finalPrompt, imageData]),
+        timeoutPromise
+      ]) as any;
+
       const text = result.response.text();
       const parsed = safeParseJSON<FreeAnalysisResult>(text);
 

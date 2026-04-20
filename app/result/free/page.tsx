@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PayButton } from "@/components/PayButton";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { getProductsForIngredient } from "@/lib/affiliateProducts";
 import {
   Activity, Droplets, ShieldCheck, ScanEye, Star,
   Sparkles, CheckCircle, Sun, Repeat2, Leaf,
   ArrowRight, ArrowLeft, MapPin, AlertCircle,
-  Clock, MessageCircle,
+  Clock, MessageCircle, Target, Zap
 } from "lucide-react";
 import type { FaceZone, SkinTip, FreeAnalysisResult } from "@/lib/types";
 
@@ -240,6 +241,9 @@ export default function FreeResultPage() {
   const [data, setData] = useState<FreeAnalysisResult | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
+  const [isDiscounted, setIsDiscounted] = useState(false);
+  const [showFlashSale, setShowFlashSale] = useState(false);
+  const [saleCountdown, setSaleCountdown] = useState(180); // 3 minutes
   const router = useRouter();
 
   useEffect(() => {
@@ -270,8 +274,49 @@ export default function FreeResultPage() {
       setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
     }, 1000);
 
-    return () => clearInterval(timer);
+    // ── EXIT INTENT & FLASH SALE ──
+    const hasSeenSale = localStorage.getItem("glowscan_flash_sale_seen");
+    if (localStorage.getItem("glowscan_discount_active") === "true") {
+      setIsDiscounted(true);
+    }
+
+    const triggerSale = () => {
+      if (localStorage.getItem("glowscan_flash_sale_seen")) return;
+      localStorage.setItem("glowscan_flash_sale_seen", "true");
+      setShowFlashSale(true);
+    };
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0) triggerSale();
+    };
+
+    // Mobile fallback: trigger after 15s of no interaction
+    const mobileTimer = setTimeout(triggerSale, 15000);
+
+    document.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(mobileTimer);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+    };
   }, [router]);
+
+  // Flash Sale Countdown
+  useEffect(() => {
+    if (!showFlashSale || saleCountdown <= 0) return;
+    const interval = setInterval(() => setSaleCountdown(prev => prev - 1), 1000);
+    return () => clearInterval(interval);
+  }, [showFlashSale, saleCountdown]);
+
+  const activateDiscount = () => {
+    setIsDiscounted(true);
+    setShowFlashSale(false);
+    localStorage.setItem("glowscan_discount_active", "true");
+    toast.success("Discount Activated!", {
+      description: "You have 3 minutes to claim your ₹29 report.",
+    });
+  };
 
   if (!data) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -303,16 +348,16 @@ export default function FreeResultPage() {
         </div>
       </div>
       <div className="px-6 pt-4 pb-2">
-        <h1 className="text-3xl font-black text-ink leading-tight">Skin Report Card</h1>
-        <p className="text-black/40 font-medium text-sm mt-0.5">Initial AI scan assessment • {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+        <h1 className="text-3xl font-black text-ink leading-tight">Dermal Assessment</h1>
+        <p className="text-black/40 font-bold text-[11px] uppercase tracking-[0.1em] mt-0.5">Clinical Preview • {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
       </div>
 
       {/* ── SEGMENTED SCORES ── */}
       <div className="px-6 mt-6">
         <div className="card-premium grid grid-cols-3 gap-4 py-7">
-          <SegmentedGauge score={glowScore} label="Glow" icon={Activity} />
+          <SegmentedGauge score={glowScore} label="Luminance" icon={Activity} />
           <SegmentedGauge score={hydrationScore} label="Hydration" icon={Droplets} />
-          <SegmentedGauge score={stabilityScore} label="Stability" icon={ShieldCheck} />
+          <SegmentedGauge score={stabilityScore} label="Barrier" icon={ShieldCheck} />
         </div>
       </div>
 
@@ -383,8 +428,8 @@ export default function FreeResultPage() {
       {tips.length > 0 && (
         <div className="px-6 mt-8">
           <div className="flex items-center justify-between mb-4 px-1">
-            <h4 className="text-lg font-black text-ink">Your Action Plan</h4>
-            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">AI Curated</span>
+            <h4 className="text-lg font-black text-ink">Action Items</h4>
+            <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">Dermatometric Guide</span>
           </div>
           <div className="space-y-3">
             <AnimatePresence mode="popLayout">
@@ -447,45 +492,77 @@ export default function FreeResultPage() {
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative z-10">
                <div className="flex items-center justify-center gap-2 mb-3">
-                 <ScanEye className="w-5 h-5 text-amber-400" />
-                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">What We Found About Your Skin</span>
+                 <ShieldCheck className="w-5 h-5 text-amber-400" />
+                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">Bio-Mapping Diagnostic</span>
                </div>
-               <h3 className="text-2xl font-black mb-1">Full Report Available</h3>
+               <h3 className="text-2xl font-black mb-1">Personalized Dermal Plan</h3>
             </div>
           </div>
 
-          {/* Curiosity Gap - Blurred Real Data */}
+          {/* Curiosity Gap - Diagnostic Delta */}
           <div className="p-6 -mt-6 bg-white rounded-t-[32px] relative z-20">
             <div className="space-y-4 mb-8">
-               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
-                 <span className="text-xs font-bold text-black/60">Your Forehead Concern</span>
-                 <div className="flex items-center gap-2">
-                   <div className="blur-[5px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
-                     {zones.find(z => z.zone === "forehead")?.issue || "Moderate Acne"}
-                   </div>
-                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                 </div>
-               </div>
-               
-               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
-                 <span className="text-xs font-bold text-black/60">Ingredient Match #1</span>
-                 <div className="flex items-center gap-2">
-                   <div className="blur-[6px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
-                     {data.primary_ingredient || "Salicylic Acid"}
-                   </div>
-                   <Star className="w-4 h-4 text-amber-500" />
-                 </div>
-               </div>
+              {/* Best vs Worst Zone Comparison */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center border border-black/5 shadow-sm">
+                    <Target className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-black/40 uppercase tracking-widest leading-none mb-1">Priority Concern</p>
+                    <p className="text-xs font-black text-ink">
+                      {(() => {
+                         const worst = [...zones].sort((a, b) => (a.score || 10) - (b.score || 10))[0];
+                         return worst ? worst.zone.replace("_", " ") : "Cheek Area";
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                <div className="blur-[5px] select-none text-[10px] font-black bg-black/10 px-2 py-1 rounded">
+                  {(() => {
+                     const worst = [...zones].sort((a, b) => (a.score || 10) - (b.score || 10))[0];
+                     return worst ? `Health Index: ${worst.score}/10` : "Critical Delta";
+                  })()}
+                </div>
+              </div>
 
-               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
-                 <span className="text-xs font-bold text-black/60">Your Skin Age Estimate</span>
-                 <div className="flex items-center gap-2">
-                   <div className="blur-[4px] select-none text-xs font-black bg-black/10 px-2 py-1 rounded">
-                     {data.skin_age_estimate || 24} yrs
-                   </div>
-                   <Activity className="w-4 h-4 text-blue-500" />
-                 </div>
-               </div>
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center border border-black/5 shadow-sm">
+                    <Zap className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-black/40 uppercase tracking-widest leading-none mb-1">Resilient Area</p>
+                    <p className="text-xs font-black text-ink">
+                      {(() => {
+                         const best = [...zones].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+                         return best ? best.zone.replace("_", " ") : "Forehead";
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                <div className="blur-[5px] select-none text-[10px] font-black bg-black/10 px-2 py-1 rounded">
+                  {(() => {
+                     const best = [...zones].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+                     return best ? `Health Index: ${best.score}/10` : "Optimal";
+                  })()}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center border border-black/5 shadow-sm">
+                    <ShieldCheck className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-black/40 uppercase tracking-widest leading-none mb-1">Barrier Analysis</p>
+                    <p className="text-xs font-black text-ink">Biological Stability Index</p>
+                  </div>
+                </div>
+                <div className="blur-[5px] select-none text-[10px] font-black bg-primary/20 text-primary-dark px-2 py-1 rounded">
+                  {Math.round((data.glow_score || 7) * 9.5)}% Strength
+                </div>
+              </div>
             </div>
 
             {/* Social Proof */}
@@ -520,15 +597,23 @@ export default function FreeResultPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-3xl font-black text-ink">₹49</span>
+                    <span className="text-3xl font-black text-ink">₹{isDiscounted ? "29" : "49"}</span>
                     <span className="text-sm line-through text-black/20">₹199</span>
-                    <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">75% OFF</span>
+                    <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {isDiscounted ? "85% OFF" : "75% OFF"}
+                    </span>
                   </div>
-                  <p className="text-[10px] font-bold text-black/40 italic">"Less than a cup of cutting chai ☕"</p>
+                  <p className="text-[10px] font-bold text-black/40 italic">
+                    {isDiscounted ? "🔥 ONE-TIME FLASH DEAL" : "\"Less than a cup of cutting chai ☕\""}
+                  </p>
                 </div>
               </div>
 
-              <PayButton className="w-full h-16 rounded-[24px] text-lg font-black" label="See My Full Skin Report — ₹49" />
+              <PayButton 
+                isDiscounted={isDiscounted}
+                className="w-full h-16 rounded-[24px] text-lg font-black" 
+                label={isDiscounted ? "Secure My Plan — ₹29" : "Get My Personalized Plan — ₹49"} 
+              />
               
               <p className="text-center text-[10px] font-bold text-black/30 flex items-center justify-center gap-2">
                 <ShieldCheck className="w-3 h-3" />
@@ -547,6 +632,74 @@ export default function FreeResultPage() {
       <p className="text-center text-[9px] text-black/20 font-medium px-8 mt-6">
         Results are AI-generated for informational purposes only and do not constitute medical advice.
       </p>
+
+      {/* ── FLASH SALE MODAL ── */}
+      <AnimatePresence>
+        {showFlashSale && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-sm bg-white rounded-[40px] overflow-hidden shadow-2xl border-2 border-black"
+            >
+              <div className="bg-black text-white p-8 text-center relative overflow-hidden">
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.2, 0.1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-primary rounded-full blur-[60px] opacity-20 -translate-y-1/2"
+                />
+                
+                <div className="relative z-10">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 rounded-3xl bg-primary/20 flex items-center justify-center border-2 border-primary/30">
+                      <Zap className="w-8 h-8 text-primary fill-primary" />
+                    </div>
+                  </div>
+                  <h2 className="text-3xl font-black mb-2 italic">WAIT!</h2>
+                  <p className="text-sm font-bold text-white/60 uppercase tracking-widest leading-tight">Don't leave your skin's <br/>future to chance.</p>
+                </div>
+              </div>
+
+              <div className="p-8 text-center bg-white">
+                <div className="mb-6">
+                  <p className="text-xs font-black text-black/40 uppercase tracking-[0.2em] mb-4">Special Recapture Offer</p>
+                  <div className="flex items-center justify-center gap-4 mb-2">
+                    <span className="text-2xl line-through text-black/20 font-black">₹49</span>
+                    <ArrowLeft className="w-6 h-6 text-black/10 rotate-180" />
+                    <span className="text-6xl font-black text-ink tracking-tighter">₹29</span>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-100 rounded-full text-[10px] font-black text-red-500 uppercase tracking-widest">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                    Valid for {Math.floor(saleCountdown / 60)}:{(saleCountdown % 60).toString().padStart(2, "0")}s
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <button 
+                    onClick={activateDiscount}
+                    className="w-full h-16 bg-primary text-white rounded-[24px] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-all flex flex-col items-center justify-center leading-none"
+                  >
+                    <span>SECURE ₹29 DEAL</span>
+                    <span className="text-[10px] mt-1 opacity-60">Expires in 3 minutes</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowFlashSale(false)}
+                    className="w-full py-4 text-[10px] font-black text-black/30 uppercase tracking-widest hover:text-black/60 transition-colors"
+                  >
+                    No thanks, I'll pay full price later
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

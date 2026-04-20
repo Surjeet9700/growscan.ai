@@ -188,7 +188,16 @@ Patient Context:
           },
         });
 
-        const result = await model.generateContent([finalPrompt, imageData]);
+        // Boris: Latency Budgeting — 10s maximum for model generation
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 10000)
+        );
+
+        const result = await Promise.race([
+          model.generateContent([finalPrompt, imageData]),
+          timeoutPromise
+        ]) as any;
+
         const text = result.response.text();
         data = safeParseJSON<FullReportResult>(text);
 
