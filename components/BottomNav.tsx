@@ -51,7 +51,7 @@ export function BottomNav() {
                 {active && (
                   <motion.div
                     layoutId="nav-pill"
-                    className="absolute inset-0 bg-black rounded-full"
+                    className="absolute inset-0 bg-[#A377D2] rounded-full shadow-[0_4px_12px_rgba(163,119,210,0.3)]"
                     transition={{ type: "spring", stiffness: 400, damping: 35 }}
                   />
                 )}

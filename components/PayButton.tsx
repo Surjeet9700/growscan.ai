@@ -6,10 +6,10 @@
 // 2. Proper TypeScript types — no more `any`
 // 3. Integrated premium ProcessingOverlay for post-payment flow
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2, Lock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Loader2, Lock, Sparkles } from "lucide-react";
+import { useRouter } from "navigation";
 import { useAuth } from "@clerk/nextjs";
 import type { RazorpayHandlerResponse } from "@/lib/types";
 import { ProcessingOverlay } from "./ProcessingOverlay";
@@ -42,8 +42,21 @@ declare global {
 export function PayButton({ className, label, isDiscounted = false }: { className?: string; label?: string; isDiscounted?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [shouldBuzz, setShouldBuzz] = useState(false);
   const router = useRouter();
   const { userId } = useAuth();
+
+  // ── Focal Point Logic (Haptic Buzz) ──
+  useEffect(() => {
+    if (!isDiscounted) return;
+    
+    const buzzInterval = setInterval(() => {
+      setShouldBuzz(true);
+      setTimeout(() => setShouldBuzz(false), 400); // 400ms is the duration of 'animate-haptic'
+    }, 12000); // Trigger every 12 seconds
+    
+    return () => clearInterval(buzzInterval);
+  }, [isDiscounted]);
 
   const handlePayment = async () => {
     // FIX: Guard against Razorpay script not yet loaded (lazyOnload race condition)
@@ -81,25 +94,26 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
         description: "Full Skin Analysis Report",
         order_id: orderId,
         prefill: { contact: "", email: "" },
-        theme: { color: "#E8956D" },
+        theme: { color: "#A377D2" }, // Skin Intelligence Purple
         handler: async (response: RazorpayHandlerResponse) => {
           setProcessing(true);
           setLoading(false);
           
           try {
+            // STEP 3: Verify signature with backend
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ...response, userId }),
             });
             const verification = await verifyRes.json();
-            if (!verification.success) throw new Error("Payment verification failed");
+            if (!verification.success) throw new Error(verification.error || "Payment verification failed");
 
-            // ── Patient Context ───────────────────────────────────────────────
+            // ── Patient Context Handle ───────────────────────────────────────
             const contextRaw = localStorage.getItem("glowscan_context");
             const context = contextRaw ? JSON.parse(contextRaw) : null;
 
-            // 4. Generate full report (MongoDB payment check happens here)
+            // 4. Generate full report (The backend verifies the record created in step 2)
             const fullRes = await fetch("/api/analyse/full", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -110,7 +124,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
               }),
             });
 
-            if (!fullRes.ok) throw new Error("Failed to generate full report. Please contact support.");
+            if (!fullRes.ok) throw new Error("Verification succeeded but report generation failed. Please contact support.");
 
             const reportData = await fullRes.json();
             if (reportData.error) throw new Error(reportData.error);
@@ -136,15 +150,15 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
         modal: {
           ondismiss() {
             setLoading(false);
-            toast.info("Payment cancelled");
+            toast.info("Payment cancelled", { description: "You can try again whenever you're ready." });
           },
         },
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (response) => {
+      rzp.on("payment.failed", (response: { error: { description: string } }) => {
         toast.error("Payment Failed", {
-          description: response.error.description,
+          description: response.error.description || "The transaction was declined by the bank.",
         });
         setLoading(false);
       });
@@ -164,7 +178,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
       <button
         onClick={handlePayment}
         disabled={loading || processing}
-        className={className || "w-full h-12 bg-white text-black rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"}
+        className={`${className || "w-full h-12 bg-white text-black rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"} ${shouldBuzz ? 'animate-haptic' : ''} ${isDiscounted ? 'bg-[#A377D2] text-white' : ''}`}
       >
         {loading ? (
           <>
@@ -173,7 +187,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
           </>
         ) : (
           <>
-            <Lock className="w-4 h-4" />
+            {isDiscounted ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             {label || (isDiscounted ? "Unlock Full Report — ₹29" : "Unlock Full Report — ₹49")}
           </>
         )}

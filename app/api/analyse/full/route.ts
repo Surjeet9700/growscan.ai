@@ -48,52 +48,59 @@ Return ONLY this exact valid JSON structure with no markdown fences or preamble:
 {
   "skin_type": "<one of: oily | dry | combination | normal>",
   "skin_type_reason": "<2 precise sentences citing exactly what you observe in the photo to conclude this>",
+  "zonal_intelligence": {
+    "forehead": { "score": <0-100: high is better>, "observation": "<1 sentence on texture/oil/lines>" },
+    "cheeks": { "score": <0-100>, "observation": "<1 sentence on hydration/pigment>" },
+    "t_zone": { "score": <0-100>, "observation": "<1 sentence on pores/sebum>" }
+  },
   "concerns": {
     "pigmentation": "<one of: none | mild | moderate | significant>",
     "acne_or_breakouts": "<one of: none | mild | moderate | significant>",
-    "dark_circles": "<one of: none | mild | moderate | significant>",
+    "dark_circles": "<one of: none | mild | moderate | significant> (focus on the orbital region)",
     "pores": "<one of: tight | slightly enlarged | enlarged>",
     "texture": "<one of: smooth | slightly uneven | uneven>",
     "hydration": "<one of: well hydrated | slightly dehydrated | dehydrated>",
     "oiliness": "<one of: low | moderate | high>"
   },
   "skin_age_estimate": "<e.g. 'Appears 24–28 years. Skin shows good collagen density with early signs of UV-related texture change'>",
+  "dermal_indices": {
+    "barrier_resistance": <0-100>,
+    "luminosity_index": <0-100>,
+    "clarity_score": <0-100>
+  },
   "strengths": [
     "<Specific genuine positive — e.g. 'Skin tone is even across the jawline with no visible scarring'>",
-    "<Second positive>",
-    "<Optional third if genuinely present — omit if not observable>"
+    "<Second positive>"
   ],
   "priority_ingredients": [
     {
       "ingredient": "<ingredient name>",
+      "scientific_role": "<e.g. Tyrosinase Inhibitor | Sebum Regulator | Humectant>",
       "reason": "<1 sentence linking this ingredient to exactly what was observed in their skin>"
     },
     {
       "ingredient": "<ingredient name>",
-      "reason": "<1 sentence>"
-    },
-    {
-      "ingredient": "<ingredient name>",
+      "scientific_role": "<role>",
       "reason": "<1 sentence>"
     }
   ],
   "morning_routine_order": [
-    "<Step 1: e.g. Gentle low-pH cleanser>",
-    "<Step 2: e.g. Niacinamide + zinc serum (5–10%)>",
-    "<Step 3: e.g. Lightweight moisturiser with ceramides>",
-    "<Step 4: SPF 50+ broad-spectrum sunscreen — non-negotiable>"
+    { "step": "Cleanser", "product": "Gentle low-pH cleanser", "purpose": "Purify without stripping" },
+    { "step": "Treatment", "product": "Niacinamide (5–10%)", "purpose": "Regulate sebum + reduce pore visibility" },
+    { "step": "Moisture", "product": "Ceramide-rich hydrator", "purpose": "Seal the barrier" },
+    { "step": "Protection", "product": "SPF 50+ Sunscreen", "purpose": "Prevent UV-induced hyperpigmentation" }
   ],
   "night_routine_order": [
-    "<Step 1>",
-    "<Step 2>",
-    "<Step 3>"
+    { "step": "Double Cleanse", "product": "Oil-based + Water-based", "purpose": "Deep surface purification" },
+    { "step": "Targeted Care", "product": "Azelaic Acid or Retinol", "purpose": "Accelerate cellular turnover" },
+    { "step": "Recovery", "product": "Night mask or heavy cream", "purpose": "Intensive nocturnal repair" }
   ],
   "lifestyle_tips": [
-    "<Specific tip directly related to what you observed — e.g. 'The peri-oral dehydration pattern suggests mouth-breathing during sleep — try a humidifier'>",
+    "<Unique observation-based tip>",
     "<Second specific tip>"
   ],
-  "recheck_in_weeks": <integer — 4 for active concerns, 8 for mild, 12 for maintenance>,
-  "summary": "<3–4 sentences: overall skin story, primary challenge, biggest opportunity for improvement, and one encouraging closing note. Write in warm clinical tone.>",
+  "recheck_in_weeks": <integer>,
+  "summary": "<3–4 sentences: overall skin story, primary challenge, biggest opportunity. Write in warm clinical tone.>",
   "error": null
 }
 

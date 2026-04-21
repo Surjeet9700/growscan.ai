@@ -8,7 +8,9 @@ import { motion } from "framer-motion";
 import {
   Camera, ChevronRight, Sparkles, CheckCircle, ScanFace, 
   HelpCircle, ChevronDown, ShieldCheck, Mail, Activity, Eye, Info,
+  LineChart, PlusCircle
 } from "lucide-react";
+import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 
 interface LastScan {
   glow_score: number;
@@ -58,7 +60,7 @@ function HealthCard({
   if (!lastScan) {
     // Empty state — informational only, no button
     return (
-      <div className="card-premium flex items-center gap-5 py-6">
+      <div className="glass-ios flex items-center gap-5 py-6 px-6">
         <div className="w-16 h-16 rounded-full bg-black/5 flex items-center justify-center shrink-0">
           <ScanFace className="w-8 h-8 text-black/15" />
         </div>
@@ -76,42 +78,43 @@ function HealthCard({
   }
 
   const pct = Math.round(lastScan.glow_score * 10);
-  const color = pct >= 70 ? "#EAB308" : pct >= 50 ? "#F97316" : "#EF4444";
+  const color = "#A377D2"; // Skin Intelligence Purple
 
   return (
     <Link href="/result/free">
-      <div className="card-premium flex items-center justify-between gap-4 active:scale-[0.99] transition-transform cursor-pointer">
+      <div className="glass-ios p-6 flex items-center justify-between gap-4 active:scale-[0.98] transition-all duration-300 cursor-pointer border border-black/[0.02]">
         <div className="flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-black/35 mb-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A377D2] mb-2 leading-none">
             Skin Health Index
           </p>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-5xl font-black text-ink">{pct}</span>
-            <span className="text-lg font-black text-black/30">%</span>
+            <span className="text-4xl font-black text-[#2F2F30]">{pct}</span>
+            <span className="text-sm font-bold text-black/20 uppercase tracking-widest">%</span>
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[9px] font-black uppercase tracking-widest text-black/30">
-              {lastScan.skin_type} skin
-            </span>
-            <span className="text-black/15">·</span>
-            <span className="text-[9px] font-bold text-black/30">{scanAgo}</span>
+          <div className="flex items-center gap-2 mt-3">
+             <div className="px-2 py-0.5 rounded-full bg-[#F6F1FB] border border-[#A377D2]/10">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#A377D2]">
+                  {lastScan.skin_type}
+                </span>
+             </div>
+            <span className="text-black/10 text-[8px] uppercase font-bold tracking-widest">{scanAgo}</span>
           </div>
         </div>
 
         {/* Ring gauge */}
         <div className="relative w-20 h-20 shrink-0">
           <svg viewBox="0 0 100 100" className="rotate-[-90deg] w-full h-full">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="10" />
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#F6F1FB" strokeWidth="8" />
             <motion.circle
-              cx="50" cy="50" r="42" fill="none" stroke={color} strokeWidth="10"
+              cx="50" cy="50" r="42" fill="none" stroke={color} strokeWidth="8"
               strokeLinecap="round" strokeDasharray="264"
               initial={{ strokeDashoffset: 264 }}
               animate={{ strokeDashoffset: 264 * (1 - pct / 100) }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
+              transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <ChevronRight className="w-5 h-5 text-black/20" />
+            <LineChart className="w-5 h-5 text-[#A377D2]/40" />
           </div>
         </div>
       </div>
@@ -148,14 +151,14 @@ export default function HomePage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-forensic pb-32 font-poppins text-[#2F2F30]">
 
       {/* ── GREETING ────────────────────────────────────────────────────── */}
-      <div className="px-6 pt-6 pb-2 flex items-center justify-between">
+      <div className="px-5 pt-8 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div 
-            className="flex-shrink-0 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white shadow-sm relative"
-            style={{ width: "44px", height: "44px" }}
+            className="flex-shrink-0 rounded-[22px] bg-white overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.03)] border border-black/[0.02] relative"
+            style={{ width: "48px", height: "48px" }}
           >
             <img
               src={user?.imageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${firstName}`}
@@ -164,23 +167,24 @@ export default function HomePage() {
             />
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="text-[10px] text-black/35 font-black uppercase tracking-widest leading-none mb-1">
-              Welcome back
+            <p className="text-[9px] text-black/20 font-bold uppercase tracking-[0.2em] leading-none mb-1.5">
+              Premium Account
             </p>
-            <h2 className="text-lg font-black text-ink leading-tight truncate">{firstName}</h2>
+            <h2 className="text-xl font-black text-[#2F2F30] leading-tight truncate">Hi, {firstName}</h2>
           </div>
         </div>
 
-        {/* Status pill — passive info only */}
-        <div className="pill-status flex items-center gap-1.5">
-          <div className={`w-1.5 h-1.5 rounded-full ${hasScan ? "bg-emerald-500 animate-pulse" : "bg-black/20"}`} />
-          <span>{hasScan ? `${Math.round(lastScan!.glow_score * 10)}%` : "No scan"}</span>
+        {/* Brand/Status Logo */}
+        <div className="w-12 h-12 rounded-[22px] bg-white border border-black/[0.02] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.03)] active:scale-95 transition-transform">
+           <GlowLogo size={24} />
         </div>
       </div>
 
       {/* ── HEALTH SCORE (passive card) ──────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+        initial={{ opacity: 0, y: 16 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ type: "spring", damping: 25, stiffness: 300, delay: 0.08 }}
         className="px-6 mt-4"
       >
         <HealthCard lastScan={lastScan} scanAgo={scanAgo} />
@@ -193,7 +197,7 @@ export default function HomePage() {
           className="px-6 mt-3"
         >
           <Link href="/result/full">
-            <div className="card-premium bg-black text-white flex items-center justify-between p-4 cursor-pointer active:scale-[0.99] transition-transform">
+            <div className="glass-midnight text-white flex items-center justify-between p-4 cursor-pointer active:scale-[0.99] transition-transform">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-amber-400" />
@@ -211,42 +215,62 @@ export default function HomePage() {
 
       {/* ── PRIMARY CTA BANNER (THE single scan action) ──────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+        initial={{ opacity: 0, y: 30 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ delay: 0.18, type: "spring", damping: 20 }}
         className="px-6 mt-5"
       >
         <Link href="/scan">
-          <div className="relative h-[280px] rounded-[32px] overflow-hidden group shadow-xl cursor-pointer active:scale-[0.99] transition-transform duration-200">
+          <motion.div 
+            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.01 }}
+            className="relative h-[320px] rounded-[48px] overflow-hidden group shadow-[0_32px_64px_rgba(163,119,210,0.18)] cursor-pointer transition-all duration-500 border border-black/[0.03]"
+          >
             <Image
               src="/hero.png"
               alt="Start skin scan"
               fill
               priority
               sizes="(max-width: 480px) 100vw, 480px"
-              className="object-cover object-[center_20%] group-active:scale-105 transition-transform duration-500"
+              className="object-cover object-[center_30%] group-hover:scale-110 transition-transform duration-[1.5s] ease-out"
             />
             {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-            {/* Content */}
-            <div className="absolute bottom-0 left-0 right-0 p-5 flex items-end justify-between">
-              <div className="text-white">
-                <p className="text-[9px] font-black uppercase tracking-[0.15em] mb-1 opacity-50">
-                  AI Skin Analysis
-                </p>
-                <h3 className="text-[22px] font-black leading-tight">
-                  {hasScan ? "Relaunch Scan" : "Analyze My Skin"}
-                </h3>
-                <p className="text-xs text-white/60 font-medium mt-0.5">
-                  {hasScan ? "Monitor your skin trajectory" : "Get your profile in 30 seconds"}
-                </p>
-              </div>
-
-              {/* Camera FAB */}
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-lg shrink-0 group-active:scale-90 transition-transform">
-                <Camera className="w-5 h-5 text-black" />
-              </div>
+            {/* Glassmorphic Tag */}
+            <div className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 shadow-lg">
+               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Live AI Global Diagnostic</span>
             </div>
-          </div>
+
+            {/* Content Bottom */}
+            <div className="absolute bottom-0 left-0 right-0 p-10 flex items-end justify-between">
+              <div className="text-white">
+                <motion.h3 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-4xl font-black leading-[0.9] mb-3 tracking-tighter"
+                >
+                  {hasScan ? "Relaunch\nForensics" : "Analyze\nMy Skin"}
+                </motion.h3>
+                <div className="flex items-center gap-2 text-[10px] text-white/60 font-bold uppercase tracking-[0.2em]">
+                  <Sparkles className="w-3 h-3 text-[#A377D2]" />
+                  <span>30s Clinical Assessment</span>
+                </div>
+              </div>
+
+              {/* Action Circle */}
+              <motion.div 
+                whileHover={{ rotate: 90 }}
+                whileTap={{ scale: 0.9, rotate: 0 }}
+                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                className="w-16 h-16 rounded-[22px] bg-[#A377D2] flex items-center justify-center shadow-[0_12px_24px_rgba(163,119,210,0.4)] shrink-0 group-active:scale-90 transition-all border-4 border-white/20"
+              >
+                <Camera className="w-7 h-7 text-white" />
+              </motion.div>
+            </div>
+          </motion.div>
         </Link>
       </motion.div>
 
@@ -265,7 +289,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="card-premium p-4">
+            <div className="glass-ios p-4">
               <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-1.5">Skin Type</p>
               <p className="text-base font-black text-ink capitalize">{lastScan!.skin_type}</p>
               <p className="text-[10px] text-black/25 mt-0.5">{scanAgo}</p>
@@ -280,26 +304,48 @@ export default function HomePage() {
 
       {/* ── DAILY TIPS (Enhanced with explanations) ────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="px-6 mt-5"
+        initial={{ opacity: 0, y: 16 }} 
+        whileInView={{ opacity: 1, y: 0 }} 
+        viewport={{ once: true }}
+        transition={{ delay: 0.3 }}
+        className="px-6 mt-10"
       >
-        <div className="flex items-center justify-between mb-3 px-1">
-          <h4 className="text-sm font-black text-ink">Daily Glow Tips</h4>
-          <span className="text-[10px] font-black text-black/30 uppercase tracking-[0.15em]">Dermatological Logic</span>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h4 className="text-sm font-black text-ink">Clinical Glow Tips</h4>
+          <span className="text-[10px] font-black text-black/30 uppercase tracking-[0.15em]">Evidence Based</span>
         </div>
-        <div className="space-y-3">
+        <motion.div 
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1 }
+            }
+          }}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          className="space-y-4"
+        >
           {DAILY_TIPS.map((tip, i) => (
-            <div key={i} className="card-premium p-4 flex gap-4">
-              <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                <CheckCircle className="w-4 h-4 text-amber-500" />
+            <motion.div 
+               key={i} 
+               variants={{
+                 hidden: { opacity: 0, x: -20 },
+                 show: { opacity: 1, x: 0 }
+               }}
+               className="glass-ios p-5 flex gap-5 hover:bg-[#F6F1FB]/30 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-[#F6F1FB] border border-[#A377D2]/10 flex items-center justify-center shrink-0">
+                <CheckCircle className="w-5 h-5 text-[#A377D2]" />
               </div>
               <div>
-                <p className="text-sm font-black text-ink">{tip.title}</p>
-                <p className="text-[11px] font-medium text-black/45 leading-relaxed mt-1">{tip.desc}</p>
+                <p className="text-sm font-black text-[#2F2F30]">{tip.title}</p>
+                <p className="text-[11px] font-medium text-black/40 leading-relaxed mt-1.5">{tip.desc}</p>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </motion.div>
 
       {/* ── SAMPLE REPORT PREVIEW (Trust Builder) ────────────────────────── */}
@@ -307,7 +353,7 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
         className="px-6 mt-8"
       >
-        <div className="card-premium bg-slate-900 text-white p-6 overflow-hidden relative">
+        <div className="glass-midnight text-white p-6 overflow-hidden relative">
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-4">
               <Eye className="w-4 h-4 text-emerald-400" />
@@ -361,7 +407,11 @@ export default function HomePage() {
           </p>
         </div>
 
-        <h1 className="text-sm font-black tracking-tighter text-primary mb-3">GLOWSCAN</h1>
+        {/* Brand Logo Anchor */}
+        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm mb-4 border border-black/[0.05]">
+           <GlowLogo size={20} />
+        </div>
+        <h1 className="text-xs font-bold tracking-[0.4em] text-[#A377D2] mb-4 uppercase">GLOWSCAN</h1>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] font-bold text-black/50 uppercase tracking-widest">
           <Link href="/privacy" className="hover:text-black">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-black">Terms of Service</Link>

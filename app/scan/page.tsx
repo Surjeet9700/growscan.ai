@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ShieldCheck, ArrowLeft, Info } from "lucide-react";
 import Link from "next/link";
+import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 
 // CRITICAL: SSR: false prevents hydration crash on mobile
 const CameraCapture = dynamic(
@@ -157,24 +158,36 @@ export default function ScanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-forensic font-poppins text-[#2F2F30]">
       {/* ── HEADER ───────────────────────────────────────────────────── */}
-      <div className="px-6 pt-6 flex items-center justify-between">
+      <div className="px-5 pt-8 flex items-center justify-between">
          <Link href="/">
-           <button className="w-10 h-10 rounded-full bg-white border border-black/5 flex items-center justify-center text-black/60 shadow-sm active:scale-95 transition-all">
+           <button className="w-12 h-12 rounded-[22px] bg-white border border-black/[0.02] flex items-center justify-center text-[#2F2F30]/60 shadow-[0_4px_12px_rgba(0,0,0,0.03)] active:scale-90 transition-transform">
              <ArrowLeft className="w-5 h-5" />
            </button>
          </Link>
-         <div className="pill-status">
-            Step 1 of 2
+         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full border border-black/[0.02] shadow-sm">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#A377D2] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#A377D2]">Active Diagnostic</span>
          </div>
       </div>
 
-      <div className="px-6 pt-8 pb-6 text-center">
-        <h1 className="text-3xl font-black text-ink">Skin Assessment</h1>
-        <p className="text-[11px] text-black/40 font-bold uppercase tracking-[0.1em] mt-1">
-          {analyzing ? STAGES[stage] : "Position your face within the frame"}
-        </p>
+      <div className="px-6 pt-10 pb-6 text-center">
+        <h1 className="text-[32px] font-black text-[#2F2F30] tracking-tight leading-tight">Skin Intelligence</h1>
+        <div className="h-6 flex items-center justify-center overflow-hidden">
+          <AnimatePresence mode="wait">
+              <motion.p 
+                key={stage}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="text-[10px] text-[#A377D2] font-black uppercase tracking-[0.2em]"
+              >
+              {analyzing ? STAGES[stage] : "Dermatological Assessment"}
+            </motion.p>
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* ── QUESTIONNAIRE / CAMERA ────────────────────────────────────── */}
@@ -183,27 +196,46 @@ export default function ScanPage() {
           {showQuestionnaire ? (
             <motion.div
               key="q-form"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm mx-auto bg-white rounded-[40px] p-8 shadow-xl border border-black/5"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm mx-auto p-2"
             >
+              {/* Progress Bar (Wide Track) */}
+              <div className="px-6 mb-8">
+                 <div className="h-1 w-full bg-black/5 rounded-full relative overflow-hidden">
+                    <motion.div 
+                      className="absolute inset-y-0 left-0 bg-[#A377D2] rounded-full"
+                      initial={{ width: "0%" }}
+                      animate={{ width: `${((qStep + 1) / 3) * 100}%` }}
+                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                 </div>
+                 <div className="flex justify-between items-center mt-3">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A377D2]">Question {qStep + 1}/3</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-black/20">{Math.round(((qStep + 1) / 3) * 100)}% Complete</span>
+                 </div>
+              </div>
+
               {qStep === 0 && (
                 <div className="space-y-6">
-                  <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Question 1/3</span>
-                    <h2 className="text-2xl font-black text-ink mt-2">What is your age range?</h2>
+                  <div className="px-4">
+                    <h2 className="text-2xl font-black text-[#2F2F30] tracking-tight leading-tight">What is your<br/>age range?</h2>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {["Under 20", "20-35", "35-50", "Over 50"].map((opt) => (
-                      <button
+                      <motion.button
                         key={opt}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 400 }}
                         onClick={() => { setQData({ ...qData, age: opt }); setQStep(1); }}
-                        className="w-full p-4 rounded-2xl bg-black/5 hover:bg-black/10 text-sm font-bold text-ink transition-colors text-left flex justify-between items-center"
+                        className="w-full p-6 rounded-[28px] glass-ios border border-black/[0.02] shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:bg-[#F6F1FB] hover:border-[#A377D2]/10 text-sm font-bold text-[#2F2F30] transition-all text-left flex justify-between items-center active:scale-[0.98]"
                       >
                         {opt}
-                        <ArrowLeft className="w-4 h-4 rotate-180 opacity-20" />
-                      </button>
+                        <div className="w-8 h-8 rounded-full bg-[#A377D2]/5 flex items-center justify-center">
+                           <ArrowLeft className="w-4 h-4 rotate-180 text-[#A377D2]/40" />
+                        </div>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -211,20 +243,23 @@ export default function ScanPage() {
 
               {qStep === 1 && (
                 <div className="space-y-6">
-                  <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Question 2/3</span>
-                    <h2 className="text-2xl font-black text-ink mt-2">Your main skin concern?</h2>
+                  <div className="px-4">
+                    <h2 className="text-2xl font-black text-[#2F2F30] tracking-tight leading-tight">Your main<br/>skin concern?</h2>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {["Acne & Pimples", "Dullness & Tan", "Aging & Wrinkles", "Dark Spots / PIH"].map((opt) => (
-                      <button
+                      <motion.button
                         key={opt}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 400 }}
                         onClick={() => { setQData({ ...qData, concern: opt }); setQStep(2); }}
-                        className="w-full p-4 rounded-2xl bg-black/5 hover:bg-black/10 text-sm font-bold text-ink transition-colors text-left flex justify-between items-center"
+                        className="w-full p-6 rounded-[28px] glass-ios border border-black/[0.02] shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:bg-[#F6F1FB] hover:border-[#A377D2]/10 text-sm font-bold text-[#2F2F30] transition-all text-left flex justify-between items-center active:scale-[0.98]"
                       >
                         {opt}
-                        <ArrowLeft className="w-4 h-4 rotate-180 opacity-20" />
-                      </button>
+                        <div className="w-8 h-8 rounded-full bg-[#A377D2]/5 flex items-center justify-center">
+                           <ArrowLeft className="w-4 h-4 rotate-180 text-[#A377D2]/40" />
+                        </div>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -232,23 +267,26 @@ export default function ScanPage() {
 
               {qStep === 2 && (
                 <div className="space-y-6">
-                  <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Question 3/3</span>
-                    <h2 className="text-2xl font-black text-ink mt-2">Daily water intake?</h2>
+                  <div className="px-4">
+                    <h2 className="text-2xl font-black text-[#2F2F30] tracking-tight leading-tight">Daily water<br/>intake?</h2>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {["Less than 1L", "1L - 2L", "More than 2L"].map((opt) => (
-                      <button
+                      <motion.button
                         key={opt}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 400 }}
                         onClick={() => { 
                           setQData({ ...qData, habits: opt }); 
                           setShowQuestionnaire(false);
                         }}
-                        className="w-full p-4 rounded-2xl bg-black/5 hover:bg-black/10 text-sm font-bold text-ink transition-colors text-left flex justify-between items-center"
+                        className="w-full p-6 rounded-[28px] glass-ios border border-black/[0.02] shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:bg-[#F6F1FB] hover:border-[#A377D2]/10 text-sm font-bold text-[#2F2F30] transition-all text-left flex justify-between items-center active:scale-[0.98]"
                       >
                         {opt}
-                        <ArrowLeft className="w-4 h-4 rotate-180 opacity-20" />
-                      </button>
+                        <div className="w-8 h-8 rounded-full bg-[#A377D2]/5 flex items-center justify-center">
+                           <ArrowLeft className="w-4 h-4 rotate-180 text-[#A377D2]/40" />
+                        </div>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -271,20 +309,44 @@ export default function ScanPage() {
             <motion.div
               key="analyzing-overlay"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-x-0 inset-y-0 rounded-[40px] bg-white/80 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-8 text-center"
+              className="absolute inset-x-0 inset-y-0 rounded-[40px] bg-forensic/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center p-8 text-center"
             >
-               <div className="relative mb-8">
-                  <div className="w-20 h-20 rounded-full border-4 border-black/5 border-t-black animate-spin" />
+               <div className="relative mb-10">
+                  {/* Outer Clinical Ring */}
+                  <motion.div 
+                    animate={{ rotate: 360 }} 
+                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    className="w-32 h-32 rounded-full border border-dashed border-[#A377D2]/20 border-t-[#A377D2]/40" 
+                  />
+                  {/* Inner Active Ring */}
+                  <div className="absolute inset-2">
+                    <div className="w-full h-full rounded-full border-4 border-[#A377D2]/5 border-t-[#A377D2] animate-spin" />
+                  </div>
+                  {/* Branding Anchor */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                     <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-black animate-pulse" />
-                     </div>
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="bg-white rounded-[28px] p-4 shadow-2xl border border-black/[0.03]"
+                    >
+                       <GlowLogo size={40} className="animate-pulse" />
+                    </motion.div>
                   </div>
                </div>
-               <h3 className="text-xl font-black text-ink mb-2">Deep AI Analysis</h3>
-               <p className="text-[10px] text-black/40 font-black uppercase tracking-[0.2em] animate-pulse">
-                  {!detectorReady && stage === 0 ? "Synchronizing AI..." : STAGES[stage]}
-               </p>
+               <h3 className="text-2xl font-black text-[#2F2F30] mb-3 tracking-tight">Clinical Analysis</h3>
+               <div className="h-4 flex items-center justify-center">
+                 <AnimatePresence mode="wait">
+                   <motion.p 
+                     key={stage}
+                     initial={{ opacity: 0, scale: 0.9 }}
+                     animate={{ opacity: 1, scale: 1 }}
+                     exit={{ opacity: 0, scale: 1.1 }}
+                     className="text-[10px] text-[#A377D2] font-black uppercase tracking-[0.3em]"
+                   >
+                     {!detectorReady && stage === 0 ? "Cloud Core..." : STAGES[stage]}
+                   </motion.p>
+                 </AnimatePresence>
+               </div>
             </motion.div>
           )}
         </AnimatePresence>

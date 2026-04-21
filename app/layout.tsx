@@ -1,6 +1,6 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Poppins, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
@@ -8,11 +8,18 @@ import { ClerkProvider, SignInButton, UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
+import { WelcomeScreen } from "@/components/ui/branding/WelcomeScreen";
+import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 
-const outfit = Outfit({ subsets: ["latin"] });
+const poppins = Poppins({ 
+  subsets: ["latin"], 
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins" 
+});
+const instrument = Instrument_Serif({ subsets: ["latin"], weight: "400", variable: "--font-serif" });
 
 export const viewport: Viewport = {
-  themeColor: "#FAF9F6", // Warm White/Cream
+  themeColor: "#F6F6F6", // Neutral Stage
   width: "device-width",
   initialScale: 1,
 };
@@ -40,10 +47,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon.png", sizes: "512x512", type: "image/png" }],
   },
 };
 
@@ -75,15 +82,16 @@ export default async function RootLayout({
             }}
           />
         </head>
-        <body className={outfit.className}>
-          <div className="flex flex-col min-h-[100dvh] w-full max-w-md mx-auto relative bg-background shadow-2xl overflow-x-hidden">
+        <body className={`${poppins.variable} ${instrument.variable} font-poppins selection:bg-[#A377D2]/20`}>
+          <WelcomeScreen />
+          <div className="flex flex-col min-h-[100dvh] w-full max-w-md mx-auto relative bg-[#FBFBFD] bg-noise shadow-2xl overflow-x-hidden">
             {/* Minimal Sticky Header */}
             <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-black/5 flex h-16 items-center px-6 justify-between transition-all">
-              <Link href="/" className="group flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center group-active:scale-95 transition-transform">
-                  <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
+              <Link href="/" className="group flex items-center gap-3">
+                <div className="w-10 h-10 rounded-[14px] bg-white border border-black/[0.03] shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex items-center justify-center group-active:scale-90 transition-transform">
+                  <GlowLogo size={24} />
                 </div>
-                <h1 className="text-xl font-black tracking-tighter text-primary">GLOWSCAN</h1>
+                <h1 className="text-xl font-black tracking-[-0.04em] text-[#2F2F30] font-poppins">GLOWSCAN</h1>
               </Link>
               <div className="flex items-center gap-3">
                 {!userId ? (

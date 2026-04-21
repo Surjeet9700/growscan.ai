@@ -98,7 +98,7 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
   const zoneMap = Object.fromEntries(zones.map(z => [z.zone, z]));
 
   return (
-    <div className="card-premium p-4">
+    <div className="glass-ios p-6">
       <div className="flex items-center gap-2 mb-3">
         <MapPin className="w-4 h-4 text-black/40" />
         <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Face Zone Map</span>
@@ -114,7 +114,7 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <ScanEye className="w-16 h-16 text-black/10" />
+            <GlowLogo size={64} className="opacity-10" />
           </div>
         )}
 
@@ -146,7 +146,6 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                   <motion.div
                     animate={{ scale: [1, 1.8], opacity: [0.3, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 rounded-full border-2"
                     style={{ borderColor: severityBorder[z.severity] }}
                   />
                   <div
@@ -156,22 +155,35 @@ function FaceZoneMap({ image, zones }: { image: string | null; zones: FaceZone[]
                   
                   {isActive && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: -40 }}
-                      className="absolute z-50 bg-black/90 backdrop-blur-md text-white text-[9px] font-bold rounded-lg px-2.5 py-2 min-w-[120px] text-center leading-tight shadow-2xl border border-white/10"
+                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: -45, scale: 1 }}
+                      transition={{ type: "spring", damping: 12 }}
+                      className="absolute z-50 bg-[#2F2F30] backdrop-blur-xl text-white text-[10px] font-bold rounded-2xl px-4 py-3 min-w-[140px] text-center leading-tight shadow-2xl border border-white/10 shrink-0"
                     >
                       {z.issue}
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[100%] w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-black/90" />
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[100%] w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#2F2F30]" />
                     </motion.div>
                   )}
                 </div>
-                <span className="text-[7px] font-black tracking-widest uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] bg-black/30 px-1 rounded-sm">
+                <span className="text-[7px] font-black tracking-[0.2em] uppercase text-white drop-shadow-lg bg-[#A377D2]/80 px-2 py-0.5 rounded-full shrink-0">
                   {label}
                 </span>
               </div>
             </button>
           )
         })}
+        
+        {/* Tracking GlowPulse */}
+        <motion.div 
+           animate={{ 
+             opacity: [0.05, 0.2, 0.05],
+             scale: [1, 1.3, 1],
+             x: ["-10%", "10%", "-10%"],
+             y: ["-10%", "10%", "-10%"]
+           }}
+           transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+           className="absolute inset-0 bg-gradient-[radial] from-[#A377D2]/20 to-transparent pointer-events-none"
+        />
       </div>
 
       {/* Zone legend */}
@@ -223,7 +235,7 @@ function SkinTipCard({ tip }: { tip: SkinTip; index: number }) {
     lifestyle: "text-emerald-600 bg-emerald-100",
   };
   return (
-    <div className={`card-premium flex gap-3 p-4 ${colors[tip.urgency]}`}>
+    <div className={`glass-ios flex gap-3 p-4 ${colors[tip.urgency]}`}>
       <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${iconColors[tip.urgency]}`}>
         <Icon className="w-4 h-4" />
       </div>
@@ -333,17 +345,18 @@ export default function FreeResultPage() {
   const stabilityScore = (zones.filter(z => z.severity === "none").length / Math.max(zones.length, 1)) >= 0.6 ? 8 : 6;
 
   return (
-    <div className="min-h-screen bg-background pb-44">
+    <div className="min-h-screen bg-forensic pb-44">
 
       {/* ── HEADER ── */}
       <div className="px-6 pt-6 flex items-center justify-between">
-        <button onClick={() => router.push("/")} className="w-10 h-10 rounded-full bg-white border border-black/5 flex items-center justify-center text-black/60 shadow-sm active:scale-95 transition-all">
+        <button onClick={() => router.push("/")} className="w-10 h-10 rounded-2xl bg-white border border-black/[0.05] flex items-center justify-center text-black/60 shadow-sm active:scale-95 transition-all">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="px-2 py-0.5 rounded-full bg-black/5 border border-black/10 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Free Preview</span>
+        <div className="flex items-center gap-3">
+          <GlowLogo size={20} />
+          <div className="px-3 py-1 rounded-full bg-[#A377D2]/10 border border-[#A377D2]/20 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#A377D2] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#A377D2]">Authorized Preview</span>
           </div>
         </div>
       </div>
@@ -354,7 +367,7 @@ export default function FreeResultPage() {
 
       {/* ── SEGMENTED SCORES ── */}
       <div className="px-6 mt-6">
-        <div className="card-premium grid grid-cols-3 gap-4 py-7">
+        <div className="glass-ios border-black/[0.03] rounded-[32px] grid grid-cols-3 gap-4 py-7">
           <SegmentedGauge score={glowScore} label="Luminance" icon={Activity} />
           <SegmentedGauge score={hydrationScore} label="Hydration" icon={Droplets} />
           <SegmentedGauge score={stabilityScore} label="Barrier" icon={ShieldCheck} />
@@ -368,7 +381,7 @@ export default function FreeResultPage() {
         const ctx = JSON.parse(ctxRaw);
         return (
           <div className="px-6 mt-6">
-            <div className="card-premium py-4 px-6 flex items-center justify-between text-center">
+          <div className="glass-ios py-5 px-6 flex items-center justify-between text-center border-black/[0.02]">
               <div className="flex flex-col">
                 <span className="text-[8px] font-black text-black/20 uppercase tracking-widest mb-1">Age</span>
                 <span className="text-[10px] font-black text-ink">{ctx.age}</span>
@@ -398,12 +411,13 @@ export default function FreeResultPage() {
       {/* ── AI OBSERVATION ── */}
       <div className="px-6 mt-6">
         <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="card-premium border-black/5 bg-neutral-50"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} 
+          transition={{ type: "spring", damping: 25, stiffness: 200, delay: 0.3 }}
+          className="glass-ios p-6 rounded-[32px] border-black/5"
         >
           <div className="flex items-center gap-2 mb-2">
-            <ScanEye className="w-4 h-4 text-black/40" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-black/40">AI Observation</span>
+            <GlowLogo size={16} className="opacity-40" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Skin Intelligence Agent</span>
           </div>
           <p className="text-sm font-medium text-black/70 leading-relaxed italic">
             "{data.preview_insight}"
@@ -413,12 +427,12 @@ export default function FreeResultPage() {
 
       {/* ── SKIN TYPE + TOP CONCERN ── */}
       <div className="px-6 mt-4 grid grid-cols-2 gap-4">
-        <div className="card-premium p-4">
+        <div className="glass-ios p-4">
           <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-1">Skin Type</p>
           <p className="text-base font-black text-ink capitalize">{data.skin_type}</p>
           <p className="text-[10px] text-black/40 font-medium mt-1 leading-tight">{data.skin_type_reason}</p>
         </div>
-        <div className="card-premium p-4 min-h-[90px] flex flex-col justify-start">
+        <div className="glass-ios p-4 min-h-[90px] flex flex-col justify-start">
           <p className="text-[9px] font-black uppercase tracking-widest text-black/30 mb-1">Top Concern</p>
           <p className="text-sm font-black text-ink capitalize leading-tight">{data.top_concern}</p>
         </div>
@@ -431,19 +445,32 @@ export default function FreeResultPage() {
             <h4 className="text-lg font-black text-ink">Action Items</h4>
             <span className="text-[10px] font-bold text-black/30 uppercase tracking-widest">Dermatometric Guide</span>
           </div>
-          <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
+          <div className="space-y-4">
+            <motion.div
+              variants={{
+                hidden: { opacity: 0 },
+                show: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+                }
+              }}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              className="space-y-4"
+            >
               {tips.map((tip, i) => (
                 <motion.div
                   key={`tip-${i}`}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 * i + 0.4 }}
+                  variants={{
+                    hidden: { opacity: 0, y: 15, scale: 0.98 },
+                    show: { opacity: 1, y: 0, scale: 1 }
+                  }}
                 >
                   <SkinTipCard tip={tip} index={i} />
                 </motion.div>
               ))}
-            </AnimatePresence>
+            </motion.div>
           </div>
         </div>
       )}
@@ -461,7 +488,8 @@ export default function FreeResultPage() {
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="card-premium p-4 flex gap-4 items-center bg-white border-amber-100/50"
+              className="glass-ios p-5 flex gap-4 items-center border-[#A377D2]/10"
+            >
             >
               <div className="w-20 h-20 rounded-2xl bg-neutral-50 flex items-center justify-center border border-black/5 shrink-0 overflow-hidden">
                 <Sparkles className="w-8 h-8 text-amber-200" />
@@ -486,9 +514,9 @@ export default function FreeResultPage() {
 
       {/* ── UPSELL — Personalised Full Plan ── */}
       <div className="px-6 mt-8">
-        <div className="card-premium bg-white border-2 border-black p-0 relative overflow-hidden shadow-2xl">
+        <div className="glass-ios p-0 relative overflow-hidden shadow-2xl border-2 border-black/5">
           {/* Header */}
-          <div className="bg-black text-white p-6 pb-8 text-center relative overflow-hidden">
+          <div className="glass-midnight text-white p-6 pb-8 text-center relative overflow-hidden rounded-t-[32px]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative z-10">
                <div className="flex items-center justify-center gap-2 mb-3">
@@ -500,7 +528,7 @@ export default function FreeResultPage() {
           </div>
 
           {/* Curiosity Gap - Diagnostic Delta */}
-          <div className="p-6 -mt-6 bg-white rounded-t-[32px] relative z-20">
+          <div className="p-6 -mt-6 bg-white/40 backdrop-blur-2xl rounded-t-[32px] relative z-20 border-t border-white/20">
             <div className="space-y-4 mb-8">
               {/* Best vs Worst Zone Comparison */}
               <div className="flex items-center justify-between p-3 rounded-2xl bg-black/5 border border-black/5">
@@ -646,7 +674,8 @@ export default function FreeResultPage() {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="w-full max-w-sm bg-white rounded-[40px] overflow-hidden shadow-2xl border-2 border-black"
+              className="w-full max-w-sm glass-ios rounded-[40px] overflow-hidden shadow-2xl border-2 border-black/10"
+            >
             >
               <div className="bg-black text-white p-8 text-center relative overflow-hidden">
                 <motion.div 

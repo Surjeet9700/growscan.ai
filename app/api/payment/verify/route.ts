@@ -30,23 +30,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
 
-    // 1. Verify HMAC signature
+    // 1. Verify HMAC signature (Standard Checkout requirement)
+    // Step 3: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keySecret) {
-      throw new Error("RAZORPAY_KEY_SECRET is not configured");
+      console.error("RAZORPAY_KEY_SECRET missing for verification");
+      return NextResponse.json({ success: false, error: "Server Configuration Error" }, { status: 500 });
     }
 
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", keySecret)
-      .update(body)
+      .update(payload)
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
+      console.warn(`Signature mismatch: Order[${razorpay_order_id}] Payment[${razorpay_payment_id}]`);
       return NextResponse.json({ success: false, error: "Signature mismatch" }, { status: 400 });
     }
 
-    // 2. Persist the verified payment — this is what /api/analyse/full checks
+    // 2. Persist the verified payment to MongoDB
+    // This allows the full analysis API to proceed for this specific user/payment.
     await dbConnect();
     await VerifiedPayment.create({
       paymentId: razorpay_payment_id,

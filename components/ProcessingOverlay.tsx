@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Sparkles } from "lucide-react";
+import { Mail, Sparkles, ShieldCheck } from "lucide-react";
+import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 
 const STAGES = [
   { text: "Analysing your skin zones...", sub: "Reading forehead & cheek patterns" },
@@ -39,8 +40,14 @@ export function ProcessingOverlay({ isOpen }: { isOpen: boolean }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center px-6 overflow-hidden"
+          className="fixed inset-0 z-[100] bg-forensic/95 backdrop-blur-xl flex flex-col items-center justify-center px-6 overflow-hidden"
         >
+          {/* Clinical Scan Line */}
+          <motion.div 
+            animate={{ top: ["0%", "100%", "0%"] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#A377D2]/20 to-transparent z-50 pointer-events-none"
+          />
           {/* ── BACKGROUND SKELETON (Blurred) ── */}
           <div className="absolute inset-x-8 inset-y-12 opacity-10 blur-md pointer-events-none space-y-8">
              <div className="h-40 w-full skeleton-premium rounded-[32px]" />
@@ -57,8 +64,8 @@ export function ProcessingOverlay({ isOpen }: { isOpen: boolean }) {
             <div className="ring-pulse pulse-ring-1 w-full h-full" />
             <div className="ring-pulse pulse-ring-2" />
             <div className="ring-pulse pulse-ring-3" />
-            <div className="relative z-10 w-16 h-16 bg-white rounded-full shadow-xl flex items-center justify-center border border-black/5">
-              <Sparkles className="w-8 h-8 text-amber-500" />
+            <div className="relative z-10 w-20 h-20 bg-white rounded-full shadow-2xl flex items-center justify-center border border-black/5">
+              <GlowLogo size={28} />
             </div>
           </div>
 
