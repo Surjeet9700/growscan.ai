@@ -16,8 +16,20 @@ export function GlowLogo({ className, size = 48, animate = false }: GlowLogoProp
       pathLength: 1, 
       opacity: 1,
       transition: {
-        duration: 1.5,
+        duration: 2,
         ease: "easeInOut" as any,
+      }
+    }
+  };
+
+  const svgVariants = {
+    initial: { scale: 0.8, rotate: -5 },
+    animate: { 
+      scale: 1, 
+      rotate: 0,
+      transition: {
+        duration: 1,
+        ease: [0.16, 1, 0.3, 1] as any // Custom ease for smooth entry
       }
     }
   };
@@ -30,6 +42,7 @@ export function GlowLogo({ className, size = 48, animate = false }: GlowLogoProp
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
       className={cn("text-[#A377D2]", className)}
+      variants={svgVariants}
       initial={animate ? "initial" : undefined}
       animate={animate ? "animate" : undefined}
     >

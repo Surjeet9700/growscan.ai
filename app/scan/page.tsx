@@ -329,7 +329,7 @@ export default function ScanPage() {
                       animate={{ scale: 1, opacity: 1 }}
                       className="bg-white rounded-[28px] p-4 shadow-2xl border border-black/[0.03]"
                     >
-                       <GlowLogo size={40} className="animate-pulse" />
+                       <GlowLogo size={40} animate className="relative z-10" />
                     </motion.div>
                   </div>
                </div>

@@ -13,6 +13,7 @@ import {
   Clock, MessageCircle, Target, Zap
 } from "lucide-react";
 import type { FaceZone, SkinTip, FreeAnalysisResult } from "@/lib/types";
+import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -490,7 +491,6 @@ export default function FreeResultPage() {
               animate={{ opacity: 1, y: 0 }}
               className="glass-ios p-5 flex gap-4 items-center border-[#A377D2]/10"
             >
-            >
               <div className="w-20 h-20 rounded-2xl bg-neutral-50 flex items-center justify-center border border-black/5 shrink-0 overflow-hidden">
                 <Sparkles className="w-8 h-8 text-amber-200" />
               </div>
@@ -675,7 +675,6 @@ export default function FreeResultPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               className="w-full max-w-sm glass-ios rounded-[40px] overflow-hidden shadow-2xl border-2 border-black/10"
-            >
             >
               <div className="bg-black text-white p-8 text-center relative overflow-hidden">
                 <motion.div 

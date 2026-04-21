@@ -1,0 +1,10 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- GlowScan Clinical Logo -->
+  <path 
+    d="M50 50C50 50 70 30 85 30C100 30 100 50 85 65C70 80 50 50 50 50ZM50 50C50 50 30 70 15 70C0 70 0 50 15 35C30 20 50 50 50 50ZM50 50C50 50 50 80 65 95C80 110 100 110 85 85C70 60 50 50 50 50Z" 
+    stroke="#A377D2" 
+    stroke-width="5" 
+    stroke-linecap="round" 
+    stroke-linejoin="round" 
+  />
+</svg>
