@@ -9,7 +9,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader2, Lock, Sparkles } from "lucide-react";
-import { useRouter } from "navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import type { RazorpayHandlerResponse } from "@/lib/types";
 import { ProcessingOverlay } from "./ProcessingOverlay";
