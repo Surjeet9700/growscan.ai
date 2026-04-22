@@ -1,5 +1,5 @@
 // app/api/analyse/free/route.ts
-// Free tier skin scan — Gemini vision with model fallback chain
+// Free tier skin scan — Gemini vision with model fallback chain + native responseSchema
 import { genAI } from "@/lib/gemini";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
@@ -9,82 +9,121 @@ import type { FreeAnalysisResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FreeAnalyseSchema } from "@/lib/schemas";
 import { analyseWithOpenRouter } from "@/lib/openrouter";
+import crypto from "crypto";
 
-// NOTE: Cannot use Edge runtime here due to Mongoose (Node.js-only)
-// maxDuration keeps the serverless fn warm enough for analysis
-export const maxDuration = 30; // 30s max (was default 10s on Vercel hobby)
+export const maxDuration = 30;
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 
-// Ordered by quality + availability. gemini-2.5-flash-lite is fastest on free tier.
-// gemini-2.0-flash is kept first as it may still work if daily quota resets.
+// Best model first — fallback on 429/404
 const MODEL_PRIORITY = [
-  "gemini-2.5-flash-lite",   // fastest, best free tier availability
-  "gemini-2.5-flash",        // better quality, slightly higher quota cost
-  "gemini-2.0-flash",        // legacy — may 429 but worth trying
+  "gemini-2.5-flash",      // best vision + reasoning
+  "gemini-2.5-flash-lite", // fastest, good for structured output
+  "gemini-2.0-flash",      // legacy fallback
 ];
 
-// ─── Premium Dermatologist-Grade Prompt ─────────────────────────────────────
-// Designed to extract maximum signal from a single selfie.
-// Structured to produce a specific, actionable free preview that
-// creates urgency for the paid full report.
-const SKIN_PROMPT = `You are an expert AI dermatologist trained to analyze skin from photographs with clinical precision.
-Analyze the selfie provided. Focus ONLY on what is clearly visible — do not hallucinate or guess features hidden from view.
+// ── Gemini native JSON schema (guaranteed valid output — no regex parsing needed) ─
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    skin_type:        { type: "STRING", enum: ["oily", "dry", "combination", "normal"] },
+    skin_type_reason: { type: "STRING" },
+    top_concern:      { type: "STRING" },
+    glow_score:       { type: "INTEGER" },
+    skin_age_estimate:{ type: "INTEGER" },
+    primary_ingredient: { type: "STRING" },
+    preview_insight:  { type: "STRING" },
+    // 4 metric ring scores — 0 to 100
+    acne_score:       { type: "INTEGER" },
+    dryness_score:    { type: "INTEGER" },
+    spots_score:      { type: "INTEGER" },
+    moisture_score:   { type: "INTEGER" },
+    face_zones: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          zone:       { type: "STRING", enum: ["forehead","left_cheek","right_cheek","nose","chin"] },
+          issue:      { type: "STRING" },
+          severity:   { type: "STRING", enum: ["none","mild","moderate","severe"] },
+          score:      { type: "INTEGER" },
+          confidence: { type: "NUMBER" },
+        },
+        required: ["zone","issue","severity","score"],
+      },
+    },
+    skin_tips: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          tip:     { type: "STRING" },
+          urgency: { type: "STRING", enum: ["daily","weekly","lifestyle"] },
+        },
+        required: ["tip","urgency"],
+      },
+    },
+    error: { type: "STRING", nullable: true },
+  },
+  required: [
+    "skin_type","skin_type_reason","top_concern","glow_score",
+    "preview_insight","face_zones","skin_tips",
+    "acne_score","dryness_score","spots_score","moisture_score",
+  ],
+} as const;
+
+// ── Production-grade dermatologist prompt ──────────────────────────────────────
+// Key improvements vs v1:
+// 1. Explicit 0–100 metric scores for acne/dryness/spots/moisture (matches frontend rings)
+// 2. Zone confidence scores for UI low-confidence warnings
+// 3. Tighter free-tier "preview_insight" strategy (tease → upgrade)
+// 4. South/Southeast Asian skin context is more specific
+const SKIN_PROMPT = `You are a clinical AI dermatologist trained on hundreds of thousands of skin images. Your analysis is calibrated for South and Southeast Asian skin tones (Fitzpatrick III–V).
 
 ## Your Task
-Produce a structured skin assessment for the FREE preview tier. This must be:
-- Diagnostic (tell them WHAT is wrong) rather than Prescriptive (telling them HOW to fix it).
-- Highly specific (mention actual observations, not generic statements)
-- Written for South/Southeast Asian skin tones (Fitzpatrick III–V) — these have different pigmentation patterns, acne tendencies, and aging markers than Caucasian skin
+Produce a FREE tier skin preview. Focus ONLY on what is clearly visible. Do NOT hallucinate features hidden from view or assume based on demographics.
 
-## Output Format
-Respond ONLY in this valid JSON structure — no markdown fences, no preamble:
+## Input Image
+A selfie or portrait photograph of a face. Analyze: skin texture, shine/oil, visible blemishes, pigmentation, pore visibility, under-eye area, and overall complexion uniformity.
 
-{
-  "skin_type": "<one of: oily | dry | combination | normal>",
-  "skin_type_reason": "<1 precise sentence citing what you actually see>",
-  "top_concern": "<The single most impactful visible issue — be specific>",
-  "glow_score": <integer 1-10>,
-  "skin_age_estimate": <integer — be honest but conservative, +/- 2 years of apparent visual age>,
-  "primary_ingredient": "<the single most needed ingredient name — e.g. Vitamin C>",
-  "preview_insight": "<1-2 sentences revealing ONE compelling but incomplete observation>",
-  "face_zones": [
-    { "zone": "forehead", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
-    { "zone": "left_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
-    { "zone": "right_cheek", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
-    { "zone": "nose", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> },
-    { "zone": "chin", "issue": "<3-8 word description>", "severity": "<none|mild|moderate|severe>", "score": <1-10 integer> }
-  ],
-  "skin_tips": [
-    { "tip": "<1 diagnostic tip 8-20 words describing the type of care needed WITHOUT naming specific ingredients>", "urgency": "daily" },
-    { "tip": "<1 diagnostic tip for weekly treatment category>", "urgency": "weekly" },
-    { "tip": "<1 lifestyle change that improves skin health>", "urgency": "lifestyle" }
-  ],
-  "error": null
-}
+## South/Southeast Asian Skin Context
+- Melanin-rich skin ages differently — PIH (post-inflammatory hyperpigmentation) is MORE common than textural scarring
+- Oiliness patterns differ from Caucasian models — T-zone often oilier even in combination skin
+- "Never aging" myth: melanin delays wrinkles but amplifies pigmentation concerns
+- Hard water and pollution exposure make barrier damage common
+- Niacinamide, azelaic acid, kojic acid, and Vitamin C are the gold-standard brighteners for this demographic
 
-## Rules
-- If the image is too blurry, poorly lit, or no face is visible: return {"error": "Image quality too low. Please retake in natural light facing the camera.", ...rest null/0}
-- glow_score: 1 = very dull/problematic, 9+ = genuinely radiant — most people score 5-7
-- zone_scores: 10 = perfect health, <5 = significant concern.
-- Identify the WORST zone and ensure its score is at least 2 points lower than the best zone to highlight the health delta.
-- preview_insight must tease the full report without giving away the routine or ingredient recommendations
-- Never use the words "I", "we", "our" — write in third-person clinical tone
-- face_zones: include ALL 5 zones. If a zone looks healthy, set severity to "none" and issue to "clear"
-- skin_tips: provide exactly 3 tips, one for each urgency level (daily, weekly, lifestyle)
-- Keep all strings under 120 characters except preview_insight (max 220 chars)
+## CRITICAL Score Calibration
+- glow_score 1–10: Most real-world users score 5–7. Reserve 9–10 for genuinely radiant skin. Only use 1–2 for severely problematic skin.
+- face_zone scores 1–10: 10 = perfect health, <5 = significant concern. The WORST zone must be at least 2 points LOWER than the best zone.
+- acne_score 0–100: 0 = none, 100 = severe cystic acne. Most users: 10–50.
+- dryness_score 0–100: 0 = well hydrated, 100 = severely dry/flaking. Most users: 15–55.
+- spots_score 0–100: 0 = no pigmentation, 100 = heavy hyperpigmentation/melasma. Most users: 10–60.
+- moisture_score 0–100: 0 = severely dehydrated, 100 = perfectly hydrated. Most users: 40–75.
+- zone confidence 0–1: Use 0.9–1.0 if clearly visible, 0.5–0.7 if partially obscured, 0.3–0.5 if guessed.
 
-## Ingredient Naming Rules (FOR FREE TIER ONLY)
-- DO NOT mention specific ingredient names (Vitamin C, Retinol, etc.) in the skin_tips. Use general categories like "brightening serum", "exfoliating treatment", "repairing cream".
-- ONLY use the specific name in the primary_ingredient field (this creates the lock-out effect).
-- The top_concern should focus on the *condition* (e.g. "Hyper-pigmentation" or "Active Breakouts").`;
+## FREE Tier Rules
+- DIAGNOSTIC only — tell them WHAT you see, not HOW to fix it
+- skin_tips: provide exactly 3 tips (one each: daily, weekly, lifestyle). Do NOT name specific ingredients in tips.
+- primary_ingredient: the single most-needed ingredient (this is the locked-away hook for the paid report)
+- preview_insight: 1–2 sentences revealing ONE compelling observation that TEASES the full report. Must create urgency without giving away the solution.
+- Never use "I", "we", "our" in output text
+- face_zones: include ALL 5 zones. If healthy, set severity "none", issue "Clear, healthy appearance", score 9–10
+- Keep all strings under 150 characters except preview_insight (max 250 chars)
 
+## Error Handling
+If image is too blurry, poorly lit, or no face visible:
+Set error to: "Image quality too low. Please retake in bright, natural light facing the camera." and return zeros for all scores.`;
+
+// ── Fallback chain ─────────────────────────────────────────────────────────────
 async function runWithFallback(
   imageBase64: string,
   userContext: string = ""
-): Promise<FreeAnalysisResult> {
-  const finalPrompt = `${SKIN_PROMPT}\n\n${userContext}`;
+): Promise<{ data: FreeAnalysisResult; modelUsed: string }> {
+  const finalPrompt = userContext
+    ? `${SKIN_PROMPT}\n\n## Patient Context\n${userContext}`
+    : SKIN_PROMPT;
 
   const imageData = {
     inlineData: {
@@ -100,56 +139,58 @@ async function runWithFallback(
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.3,
-          topP: 0.8,
-          maxOutputTokens: 1024,
+          temperature: 0.25,
+          topP: 0.85,
+          maxOutputTokens: 1536,
           responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA as any,
         },
       });
 
-      // Boris: Latency Budgeting — 10s maximum for model generation
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 10000)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 15000)
       );
 
       const result = await Promise.race([
         model.generateContent([finalPrompt, imageData]),
-        timeoutPromise
+        timeoutPromise,
       ]) as any;
 
       const text = result.response.text();
       const parsed = safeParseJSON<FreeAnalysisResult>(text);
 
-      // Validate critical fields
-      if (!parsed || !parsed.skin_type || parsed.glow_score === undefined) {
-        throw new Error("Incomplete response from model");
+      // Strict validation — reject if core fields missing
+      if (!parsed?.skin_type) throw new Error("Incomplete response: missing skin_type");
+      if (parsed.glow_score === undefined) throw new Error("Incomplete response: missing glow_score");
+      if (!Array.isArray(parsed.face_zones) || parsed.face_zones.length === 0) {
+        throw new Error("Incomplete response: missing face_zones");
       }
 
-      return parsed;
+      return { data: parsed, modelUsed: modelName };
+
     } catch (err: any) {
       const status = err?.status ?? 0;
       const msg = String(err?.message ?? "");
-      const is429 = status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
-      const is404 = status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
+      const isQuota = status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
+      const isNotFound = status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
 
-      if (is429 || is404) {
-        console.warn(`[Gemini] Model ${modelName} unavailable (${is429 ? "quota" : "not found"}), trying next…`);
+      if (isQuota || isNotFound) {
+        console.warn(`[Gemini Free] ${modelName} unavailable (${isQuota ? "quota" : "not found"}), trying next…`);
         lastError = err;
         continue;
       }
-      // Any other error (image invalid, JSON parse fail, etc.) — surface immediately
-      throw err;
+      throw err; // Surface non-quota errors immediately
     }
   }
 
-  // ─── FINAL FALLBACK: OpenRouter (Gemma 4 31B) ───
+  // ── FINAL FALLBACK: OpenRouter ────────────────────────────────────────────
+  console.warn("[Free Analysis] All Gemini models exhausted. Trying OpenRouter…");
   try {
-    console.warn("[Free Analysis] All Gemini models exhausted. Trying OpenRouter (Gemma 4 31B)...");
     const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
     const parsed = safeParseJSON<FreeAnalysisResult>(text);
-    
-    if (parsed && (parsed.skin_type || parsed.error)) {
-      return parsed;
+
+    if (parsed?.skin_type || parsed?.error) {
+      return { data: parsed, modelUsed: "openrouter-fallback" };
     }
   } catch (orErr: any) {
     console.error("[OpenRouter Fallback] Failed:", orErr.message);
@@ -160,7 +201,11 @@ async function runWithFallback(
   throw quotaErr;
 }
 
+// ── Route Handler ──────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const startTime = Date.now();
+
   try {
     // 1. Auth
     const { userId } = await auth();
@@ -168,29 +213,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 2. Validate input
     const json = await req.json();
-    
-    // 1. Validate Input
-    const result = FreeAnalyseSchema.safeParse(json);
-    if (!result.success) {
-      return NextResponse.json({ 
-        error: "Invalid image data provided", 
-        details: result.error.format() 
-      }, { status: 400 });
+    const validation = FreeAnalyseSchema.safeParse(json);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid request", details: validation.error.format() },
+        { status: 400 }
+      );
     }
 
-    const { imageBase64, context } = result.data;
-    // We already checked startsWith("data:image") in the Zod schema
+    const { imageBase64, context } = validation.data;
 
-    // ── Pre-Scan Personalization (Context) ───────────────────────────────────
-    const userContext = context ? `
-Patient Context:
-- Age Range: ${context.age}
-- Primary Concern: ${context.concern}
-- Lifestyle/Water: ${context.habits}
-` : "";
+    // 3. Build personalization context
+    const userContext = context
+      ? `Age Range: ${context.age ?? "unknown"}\nPrimary Concern: ${context.concern ?? "general"}\nWater Intake: ${context.habits ?? "unknown"}`
+      : "";
 
-    // 2. Rate limiting — fail open so analysis works even if DB is unreachable
+    // 4. Rate limiting (fail-open if DB unreachable)
     let dbAvailable = false;
     try {
       await dbConnect();
@@ -205,18 +245,21 @@ Patient Context:
 
       if (recentCount >= RATE_LIMIT) {
         return NextResponse.json(
-          { error: "You've used your 5 free scans for this period. Please wait 10 minutes." },
+          { error: `You've used your ${RATE_LIMIT} free scans for this period. Please wait 10 minutes.` },
           { status: 429 }
         );
       }
     } catch (dbErr) {
-      console.warn("[MongoDB] Unavailable — skipping rate limit:", (dbErr as Error).message);
+      console.warn("[MongoDB] Rate limit check skipped — DB unavailable:", (dbErr as Error).message);
     }
 
-    // 3. Gemini analysis with model fallback
+    // 5. AI analysis with fallback chain
     let data: FreeAnalysisResult;
+    let modelUsed = "unknown";
     try {
-      data = await runWithFallback(imageBase64, userContext);
+      const result = await runWithFallback(imageBase64, userContext);
+      data = result.data;
+      modelUsed = result.modelUsed;
     } catch (err: any) {
       if (err?.isQuota) {
         return NextResponse.json(
@@ -227,19 +270,26 @@ Patient Context:
       throw err;
     }
 
-    // 4. Save scan fire-and-forget — don't block the response
+    // 6. Attach response metadata
+    const processingTimeMs = Date.now() - startTime;
+    const enrichedData: FreeAnalysisResult = {
+      ...data,
+      _meta: { request_id: requestId, processing_time_ms: processingTimeMs, model_used: modelUsed },
+    };
+
+    // 7. Save to DB fire-and-forget
     if (dbAvailable) {
       void Scan.create({
         userId,
         type: "free",
-        result: data as unknown as Record<string, unknown>,
+        result: enrichedData as unknown as Record<string, unknown>,
       }).catch((e: Error) => console.warn("[MongoDB] Scan save failed:", e.message));
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(enrichedData);
 
   } catch (error) {
-    console.error("[Free analysis] Unhandled error:", error);
+    console.error(`[Free analysis] [${requestId}] Unhandled error:`, error);
     return NextResponse.json(
       { error: "Could not analyse image. Please try a clearer photo in natural light." },
       { status: 422 }

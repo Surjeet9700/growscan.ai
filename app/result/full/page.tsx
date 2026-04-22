@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Clock, Droplets, Leaf, Share, Sparkles,
@@ -75,7 +75,7 @@ const SAMPLE_REPORT = {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function FullResultPage() {
+function FullResultContent() {
   const [data, setData] = useState<any>(null);
   const [image, setImage] = useState<string | null>(null);
   const router = useRouter();
@@ -472,5 +472,13 @@ export default function FullResultPage() {
         Digital Analysis · Non-Medical Information
       </p>
     </div>
+  );
+}
+
+export default function FullResultPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center"><div className="w-10 h-10 rounded-full border-2 border-[#A377D2] border-t-transparent animate-spin" /></div>}>
+      <FullResultContent />
+    </Suspense>
   );
 }

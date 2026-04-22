@@ -3,9 +3,9 @@
 @import "shadcn/tailwind.css";
 
 /* ─────────────────────────────────────────────
-   GlowScan Premium Design System (Light Theme)
-   Palette: Warm Cream × Ink Black × Champagne
-   Font: Outfit
+   GlowScan — Behance-Aligned Design System
+   Palette: Clinical White × Ink Black × Skin Purple
+   Font: Poppins
    ───────────────────────────────────────────── */
 
 @plugin "tailwindcss-animate";
@@ -13,63 +13,63 @@
 
 @layer base {
   :root {
-    /* ── Surfaces (Behance Forensic) ────────── */
-    --background:         #F6F6F6;  /* Neutral Stage */
-    --foreground:         #2F2F30;  /* Charcoal Depth */
-    
-    --card:               #FFFFFF;  /* Pure Clinical White */
-    --card-foreground:    #2F2F30;
-    
-    --popover:            #FFFFFF;
-    --popover-foreground: #2F2F30;
+    /* ── Surfaces ────────────── */
+    --background:         #FAFAFA;   /* Clinical Off-White */
+    --foreground:         #1A1A1A;   /* Near Black */
 
-    /* ── Brand: Skin Intelligence ─────────── */
+    --card:               #FFFFFF;
+    --card-foreground:    #1A1A1A;
+
+    --popover:            #FFFFFF;
+    --popover-foreground: #1A1A1A;
+
+    /* ── Brand ───────────────── */
     --primary:            #A377D2;   /* Skin Intelligence Purple */
     --primary-foreground: #FFFFFF;
 
-    --secondary:          #F6F1FB;   /* Lavender Mist */
+    --secondary:          #F3EEFB;   /* Lavender Mist */
     --secondary-foreground: #A377D2;
 
-    --muted:              #F0F0F0;
-    --muted-foreground:   #6B6B6B;
+    --muted:              #F5F5F5;
+    --muted-foreground:   #9A9A9A;
 
-    /* ── Accents ─────────────────────────── */
+    /* ── Accents ─────────────────── */
     --accent:             #A377D2;
     --accent-foreground:  #FFFFFF;
 
     --destructive:        #FF4B4B;
     --destructive-foreground: #FFFFFF;
 
-    /* ── Border / Input ──────────────────── */
-    --border:             rgba(47, 47, 48, 0.08); 
-    --input:              rgba(47, 47, 48, 0.08);
+    /* ── Borders ─────────────────── */
+    --border:             rgba(0, 0, 0, 0.06);
+    --input:              rgba(0, 0, 0, 0.06);
     --ring:               #A377D2;
 
-    --radius: 2rem; /* 32px for premium soft look */
+    /* ── Shape ─────────────────── */
+    --radius: 1.5rem;     /* 24px — Behance card radius */
     --margin: 20px;
-    --gutter: 20px;
+    --gutter: 16px;
   }
 
-  /* Dark mode support (optional) */
+  /* Dark mode — minimal support */
   .dark {
-    --background:         oklch(0.10 0.010 50);
-    --foreground:         oklch(0.98 0.005 75);
-    --card:               oklch(0.14 0.008 50);
-    --card-foreground:    oklch(0.98 0.005 75);
-    --primary:            oklch(0.98 0.005 75);
-    --primary-foreground: oklch(0.10 0.010 50);
-    --border:             oklch(1 0 0 / 10%);
+    --background:         #0F0F0F;
+    --foreground:         #F5F5F5;
+    --card:               #1A1A1A;
+    --card-foreground:    #F5F5F5;
+    --border:             rgba(255, 255, 255, 0.08);
   }
 
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
-  
+
   html {
-    @apply font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+    overscroll-behavior: none;
   }
 
   body {
@@ -77,45 +77,87 @@
     max-width: 480px;
     margin-inline: auto;
     min-height: 100dvh;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
   }
-
-  /* Prevent rubber-band overscroll on body */
-  html { overscroll-behavior: none; }
 }
 
 @layer components {
-  /* ── Boris Lux Design System ── */
-  .card-premium {
-    @apply bg-card border border-black/[0.03] rounded-[32px] p-6 transition-all duration-500 ease-out;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.02), 0 2px 4px -2px rgb(0 0 0 / 0.02), 0 20px 40px -12px rgb(0 0 0 / 0.03);
+  /* ── Card Styles ── */
+  .card-base {
+    @apply bg-white rounded-[24px] p-5;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03);
   }
 
-  .card-premium:hover {
-    @apply border-black/[0.06];
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.03), 0 4px 6px -4px rgb(0 0 0 / 0.03), 0 25px 50px -12px rgb(0 0 0 / 0.04);
-    transform: translateY(-2px);
+  .card-base:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
   }
 
-  .card-glass {
-    @apply bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.02)] rounded-[32px] p-6;
+  .card-purple {
+    @apply bg-[#F3EEFB] rounded-[24px] p-5;
   }
 
-  .btn-black {
-    @apply h-14 px-8 rounded-full bg-black text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xl shadow-black/5 hover:shadow-black/10 hover:bg-neutral-800;
+  /* ── Buttons ── */
+  .btn-dark {
+    @apply h-14 px-8 rounded-full bg-[#1A1A1A] text-white font-bold text-[15px]
+           flex items-center justify-center gap-2 active:scale-[0.97]
+           transition-all duration-200 shadow-sm;
   }
 
-  .btn-glass {
-    @apply h-14 px-6 rounded-full bg-white/40 backdrop-blur-lg border border-white/60 text-black font-bold flex items-center justify-center gap-2 active:scale-95 transition-all;
+  .btn-purple {
+    @apply h-14 px-8 rounded-full bg-[#A377D2] text-white font-bold text-[15px]
+           flex items-center justify-center gap-2 active:scale-[0.97]
+           transition-all duration-200 shadow-[0_4px_16px_rgba(163,119,210,0.3)];
   }
 
-  .text-ink {
-    @apply text-foreground font-black tracking-tighter; /* Boris Tighter Tracking */
+  .btn-outline {
+    @apply h-14 px-8 rounded-full border border-black/10 bg-white text-[#1A1A1A] font-semibold text-[15px]
+           flex items-center justify-center gap-2 active:scale-[0.97]
+           transition-all duration-200;
   }
 
-  .pill-status {
-    @apply px-3 py-1 rounded-full bg-white/90 backdrop-blur-md border border-black/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-black/50 shadow-[0_2px_10px_rgba(0,0,0,0.02)];
+  /* ── Progress Bar ── */
+  .progress-bar {
+    @apply w-full h-1.5 bg-black/[0.06] rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full bg-[#A377D2] rounded-full transition-all duration-700 ease-out;
+  }
+
+  /* ── Metric Chip ── */
+  .metric-chip {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold;
+  }
+
+  .metric-chip-high {
+    @apply bg-red-50 text-red-600;
+  }
+
+  .metric-chip-medium {
+    @apply bg-amber-50 text-amber-600;
+  }
+
+  .metric-chip-low {
+    @apply bg-emerald-50 text-emerald-600;
+  }
+
+  /* ── Nav Item ── */
+  .nav-item-active {
+    @apply text-[#A377D2];
+  }
+
+  .nav-item-inactive {
+    @apply text-[#BBBBBB];
+  }
+
+  /* ── Badge / Tag ── */
+  .tag-purple {
+    @apply inline-flex items-center px-3 py-1 rounded-full bg-[#F3EEFB] text-[#A377D2]
+           text-[11px] font-semibold;
+  }
+
+  .tag-dark {
+    @apply inline-flex items-center px-3 py-1 rounded-full bg-[#1A1A1A] text-white
+           text-[11px] font-semibold;
   }
 }
 
@@ -141,143 +183,98 @@
   --color-border:             var(--border);
   --color-input:              var(--input);
   --color-ring:               var(--ring);
-  --radius-sm:  calc(var(--radius) * 0.6);
-  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-sm:  calc(var(--radius) * 0.5);
+  --radius-md:  calc(var(--radius) * 0.75);
   --radius-lg:  var(--radius);
-  --radius-xl:  calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 2);
+  --radius-xl:  calc(var(--radius) * 1.33);
 }
 
 @layer utilities {
-  .text-serif {
-    font-family: var(--font-serif);
-    font-style: italic;
-  }
+  /* ── Layout Helpers ── */
   .lux-margin {
     padding-left: var(--margin);
     padding-right: var(--margin);
   }
-  .lux-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--gutter);
+
+  /* ── Text Styles ── */
+  .text-title {
+    @apply text-[#1A1A1A] font-bold tracking-tight;
+  }
+  .text-label {
+    @apply text-[#9A9A9A] text-xs font-medium;
+  }
+  .text-purple {
+    @apply text-[#A377D2];
   }
 
-  .bg-noise {
-    position: relative;
-    background-color: #F6F6F6;
+  /* ── Shadows ── */
+  .shadow-card {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   }
-  .bg-noise::before {
-    content: "";
-    @apply absolute inset-0 pointer-events-none;
-    opacity: 0.12;
-    z-index: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  .shadow-card-hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
   }
-  /* Clinical Mesh Motif */
-  .bg-noise::after {
-    content: "";
-    @apply absolute inset-0 pointer-events-none;
-    background: 
-      radial-gradient(circle at 0% 0%, rgba(163, 119, 210, 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(163, 119, 210, 0.02) 0%, transparent 50%);
-    z-index: 0;
+  .shadow-purple {
+    box-shadow: 0 4px 16px rgba(163, 119, 210, 0.25);
   }
 
-  .glass-ios {
-    @apply bg-white/70 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(163,119,210,0.06)];
+  /* ── Safe Area ── */
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
-
-  .glass-midnight {
-    @apply bg-[#0c0c0d]/80 backdrop-blur-3xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)];
-  }
-
-  .bg-forensic {
-    position: relative;
-    background-color: #F6F6F6;
-    overflow-x: hidden;
-  }
-
-  .bg-forensic::before {
-    content: "";
-    @apply fixed inset-0 pointer-events-none;
-    opacity: 0.05;
-    z-index: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  }
-
-  .bg-forensic::after {
-    content: "";
-    @apply fixed inset-0 pointer-events-none;
-    background: 
-      radial-gradient(circle at 10% 10%, rgba(163, 119, 210, 0.04) 0%, transparent 40%),
-      radial-gradient(circle at 90% 90%, rgba(163, 119, 210, 0.03) 0%, transparent 40%);
-    z-index: 0;
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
   }
 }
 
-/* Force thinner strokes on all Lucide icons for a premium feel */
+/* ── Lucide icons ── */
 svg.lucide {
-  stroke-width: 1.5px;
+  stroke-width: 1.75px;
 }
 
-/* Safe-area bottom padding for PWA home-bar */
-.pb-safe {
-  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+/* ── Animations ── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.animate-slide-up { animation: slide-up 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-/* Shimmer skeleton */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 400ms ease forwards; }
+
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #f0ede8 25%, #e1ddd5 50%, #f0ede8 75%);
+  background: linear-gradient(90deg, #F5F5F5 25%, #EBEBEB 50%, #F5F5F5 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
 }
 
-/* Entrance animation */
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up { animation: slide-up 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-/* ── Diagnostic Loading Overlay ── */
-
-@keyframes haptic-buzz {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
-  20%, 40%, 60%, 80% { transform: translateX(1px); }
+/* ── Circular Progress Ring ── */
+@keyframes ring-fill {
+  from { stroke-dashoffset: var(--ring-total, 201); }
+  to   { stroke-dashoffset: var(--ring-offset, 0); }
 }
 
-.animate-haptic {
-  animation: haptic-buzz 0.4s cubic-bezier(.36,.07,.19,.97) both;
+/* ── Scan face mesh pulse ── */
+@keyframes mesh-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.9; }
+}
+.mesh-dot {
+  animation: mesh-pulse 2s ease-in-out infinite;
 }
 
-@keyframes diagnosticPulse {
-  0%   { transform: scale(0.8); opacity: 0.8; }
-  50%  { transform: scale(1.2); opacity: 0.2; }
-  100% { transform: scale(0.8); opacity: 0.8; }
+/* ── Progress bar animated fill ── */
+@keyframes bar-fill {
+  from { width: 0%; }
 }
-
-.ring-pulse {
-  @apply absolute rounded-full border border-black/10;
-  animation: diagnosticPulse 2.5s ease-in-out infinite;
-}
-
-.pulse-ring-1 { animation-delay: 0s; }
-.pulse-ring-2 { animation-delay: 0.5s; width: 140%; height: 140%; margin: -20%; }
-.pulse-ring-3 { animation-delay: 1.0s; width: 180%; height: 180%; margin: -40%; }
-
-.skeleton-premium {
-  @apply relative overflow-hidden bg-[#f0ede8];
-  &::after {
-    content: "";
-    @apply absolute inset-0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: shimmer 2s infinite;
-  }
+.bar-animated {
+  animation: bar-fill 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

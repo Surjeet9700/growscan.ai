@@ -11,116 +11,165 @@ import type { FullReportResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FullAnalyseSchema } from "@/lib/schemas";
 import { analyseWithOpenRouter } from "@/lib/openrouter";
+import crypto from "crypto";
 
 export const maxDuration = 60;
 
-// Best model first — if quota hit, fall back
 const MODEL_PRIORITY = [
-  "gemini-2.5-flash",       // best vision + reasoning
-  "gemini-2.5-flash-lite",  // faster, same quality for structured output
-  "gemini-2.0-flash",       // legacy fallback
+  "gemini-2.5-flash",      // best vision + reasoning for paid report
+  "gemini-2.5-flash-lite", // faster fallback
+  "gemini-2.0-flash",      // legacy final fallback
 ];
 
-const FULL_PROMPT = `You are a board-certified dermatologist AI with specific expertise in South and Southeast Asian skin (Fitzpatrick III–V).
+// ── Gemini native JSON schema ─────────────────────────────────────────────────
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    skin_type:        { type: "STRING", enum: ["oily","dry","combination","normal"] },
+    skin_type_reason: { type: "STRING" },
+    zonal_intelligence: {
+      type: "OBJECT",
+      properties: {
+        forehead: {
+          type: "OBJECT",
+          properties: { score: { type: "INTEGER" }, observation: { type: "STRING" } },
+          required: ["score","observation"],
+        },
+        cheeks: {
+          type: "OBJECT",
+          properties: { score: { type: "INTEGER" }, observation: { type: "STRING" } },
+          required: ["score","observation"],
+        },
+        t_zone: {
+          type: "OBJECT",
+          properties: { score: { type: "INTEGER" }, observation: { type: "STRING" } },
+          required: ["score","observation"],
+        },
+      },
+      required: ["forehead","cheeks","t_zone"],
+    },
+    concerns: {
+      type: "OBJECT",
+      properties: {
+        pigmentation:     { type: "STRING", enum: ["none","mild","moderate","significant"] },
+        acne_or_breakouts:{ type: "STRING", enum: ["none","mild","moderate","significant"] },
+        dark_circles:     { type: "STRING", enum: ["none","mild","moderate","significant"] },
+        pores:            { type: "STRING", enum: ["tight","slightly enlarged","enlarged"] },
+        texture:          { type: "STRING", enum: ["smooth","slightly uneven","uneven"] },
+        hydration:        { type: "STRING", enum: ["well hydrated","slightly dehydrated","dehydrated"] },
+        oiliness:         { type: "STRING", enum: ["low","moderate","high"] },
+      },
+      required: ["pigmentation","acne_or_breakouts","dark_circles","pores","texture","hydration","oiliness"],
+    },
+    skin_age_estimate: { type: "STRING" },
+    dermal_indices: {
+      type: "OBJECT",
+      properties: {
+        barrier_resistance:{ type: "INTEGER" },
+        luminosity_index:  { type: "INTEGER" },
+        clarity_score:     { type: "INTEGER" },
+      },
+      required: ["barrier_resistance","luminosity_index","clarity_score"],
+    },
+    strengths: { type: "ARRAY", items: { type: "STRING" } },
+    priority_ingredients: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          ingredient:      { type: "STRING" },
+          scientific_role: { type: "STRING" },
+          reason:          { type: "STRING" },
+        },
+        required: ["ingredient","scientific_role","reason"],
+      },
+    },
+    morning_routine_order: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          step:    { type: "STRING" },
+          product: { type: "STRING" },
+          purpose: { type: "STRING" },
+        },
+        required: ["step","product","purpose"],
+      },
+    },
+    night_routine_order: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          step:    { type: "STRING" },
+          product: { type: "STRING" },
+          purpose: { type: "STRING" },
+        },
+        required: ["step","product","purpose"],
+      },
+    },
+    lifestyle_tips: { type: "ARRAY", items: { type: "STRING" } },
+    recheck_in_weeks: { type: "INTEGER" },
+    summary: { type: "STRING" },
+    error: { type: "STRING", nullable: true },
+  },
+  required: [
+    "skin_type","skin_type_reason","zonal_intelligence","concerns",
+    "skin_age_estimate","dermal_indices","strengths","priority_ingredients",
+    "morning_routine_order","night_routine_order","lifestyle_tips",
+    "recheck_in_weeks","summary",
+  ],
+} as const;
+
+// ── Full dermatologist report prompt ──────────────────────────────────────────
+// This is the PAID report — comprehensive, warm, specific, actionable.
+const FULL_PROMPT = `You are a board-certified dermatologist AI with deep expertise in South and Southeast Asian skin (Fitzpatrick III–V).
 You are generating a PAID "Skin Report Card". This must be professional, specific, and immediately actionable.
 
-## Context for South/Southeast Asian Skin
-- Melanin-rich skin has higher risk of post-inflammatory hyperpigmentation (PIH) than textural scarring
-- Hard water, high humidity, and pollution are common environmental stressors
+## South/Southeast Asian Skin Intelligence
+- Melanin-rich skin: PIH (post-inflammatory hyperpigmentation) is the #1 cosmetic complaint — not wrinkles
+- Environmental factors: hard water, high humidity, pollution are common stressors
+- Skin barrier damage is underdiagnosed in this demographic — look for subtle redness, tightness signals
+- Niacinamide, azelaic acid, kojic acid, and Vitamin C are proven for this skin type
+- SPF is critical year-round — UV is the accelerant of all pigmentation issues
 - Avoid recommending high-strength retinoids without barrier repair context
-- Niacinamide, azelaic acid, and kojic acid outperform hydroquinone for this demographic
-- "Never aging" myth: melanin protects but also means dyspigmentation is the #1 complaint, not wrinkles
 
 ## Your Task
-Analyze every visible aspect of the face in the photo.
-Assess: skin type, all visible concerns, hydration, texture, pore size, pigmentation patterns, signs of sun damage, visible aging markers, skin barrier integrity signals.
+Analyze EVERY visible aspect of the face photograph:
+- Skin type (oil distribution, shine patterns)
+- All visible concerns across 3 zones: forehead, cheeks (as one unit), T-zone
+- Hydration level, texture uniformity, pore visibility
+- Pigmentation patterns (melasma, PIH, sun damage areas)
+- Signs of aging (fine lines, collagen loss markers)
+- Under-eye zone (dark circles, hollowing, puffiness)
+- Skin barrier integrity signals (redness, sensitivity markers, dehydration lines)
 
 ## Tone Rules
 - Write like a knowledgeable friend who happens to be a dermatologist
 - Warm, direct, specific — no hedging, no vague generalities
 - Never use "I see", "I notice", "I think"
 - Write in second-person ("Your skin shows..." "This indicates...")
-- No brand names — ingredients only
+- No brand names — ingredients and product categories only
 
-## Output Format
-Return ONLY this exact valid JSON structure with no markdown fences or preamble:
+## Zone Intelligence Scoring
+- Score is 0–100 (high = good health, low = needs attention)
+- Forehead: focus on texture, horizontal lines, oiliness
+- Cheeks: focus on pigmentation, hydration, redness
+- T-Zone: focus on pores, sebum, blackheads
 
-{
-  "skin_type": "<one of: oily | dry | combination | normal>",
-  "skin_type_reason": "<2 precise sentences citing exactly what you observe in the photo to conclude this>",
-  "zonal_intelligence": {
-    "forehead": { "score": <0-100: high is better>, "observation": "<1 sentence on texture/oil/lines>" },
-    "cheeks": { "score": <0-100>, "observation": "<1 sentence on hydration/pigment>" },
-    "t_zone": { "score": <0-100>, "observation": "<1 sentence on pores/sebum>" }
-  },
-  "concerns": {
-    "pigmentation": "<one of: none | mild | moderate | significant>",
-    "acne_or_breakouts": "<one of: none | mild | moderate | significant>",
-    "dark_circles": "<one of: none | mild | moderate | significant> (focus on the orbital region)",
-    "pores": "<one of: tight | slightly enlarged | enlarged>",
-    "texture": "<one of: smooth | slightly uneven | uneven>",
-    "hydration": "<one of: well hydrated | slightly dehydrated | dehydrated>",
-    "oiliness": "<one of: low | moderate | high>"
-  },
-  "skin_age_estimate": "<e.g. 'Appears 24–28 years. Skin shows good collagen density with early signs of UV-related texture change'>",
-  "dermal_indices": {
-    "barrier_resistance": <0-100>,
-    "luminosity_index": <0-100>,
-    "clarity_score": <0-100>
-  },
-  "strengths": [
-    "<Specific genuine positive — e.g. 'Skin tone is even across the jawline with no visible scarring'>",
-    "<Second positive>"
-  ],
-  "priority_ingredients": [
-    {
-      "ingredient": "<ingredient name>",
-      "scientific_role": "<e.g. Tyrosinase Inhibitor | Sebum Regulator | Humectant>",
-      "reason": "<1 sentence linking this ingredient to exactly what was observed in their skin>"
-    },
-    {
-      "ingredient": "<ingredient name>",
-      "scientific_role": "<role>",
-      "reason": "<1 sentence>"
-    }
-  ],
-  "morning_routine_order": [
-    { "step": "Cleanser", "product": "Gentle low-pH cleanser", "purpose": "Purify without stripping" },
-    { "step": "Treatment", "product": "Niacinamide (5–10%)", "purpose": "Regulate sebum + reduce pore visibility" },
-    { "step": "Moisture", "product": "Ceramide-rich hydrator", "purpose": "Seal the barrier" },
-    { "step": "Protection", "product": "SPF 50+ Sunscreen", "purpose": "Prevent UV-induced hyperpigmentation" }
-  ],
-  "night_routine_order": [
-    { "step": "Double Cleanse", "product": "Oil-based + Water-based", "purpose": "Deep surface purification" },
-    { "step": "Targeted Care", "product": "Azelaic Acid or Retinol", "purpose": "Accelerate cellular turnover" },
-    { "step": "Recovery", "product": "Night mask or heavy cream", "purpose": "Intensive nocturnal repair" }
-  ],
-  "lifestyle_tips": [
-    "<Unique observation-based tip>",
-    "<Second specific tip>"
-  ],
-  "recheck_in_weeks": <integer>,
-  "summary": "<3–4 sentences: overall skin story, primary challenge, biggest opportunity. Write in warm clinical tone.>",
-  "error": null
-}
+## Ingredient Naming Standards
+Use these canonical names:
+Salicylic Acid | Vitamin C | Niacinamide | Retinol | Hyaluronic Acid | Glycolic Acid | Ceramides | Azelaic Acid | Kojic Acid | Centella Asiatica | Tranexamic Acid | Peptides | Zinc Oxide
 
 ## Error Handling
-If the image is too blurry, poorly lit, or shows no face:
-Return: {"error": "Image quality insufficient. Please retake in natural light, facing the camera directly.", "skin_type": null, "concerns": {}, "priority_ingredients": [], "morning_routine_order": [], "night_routine_order": [], "lifestyle_tips": [], "summary": null, "skin_age_estimate": null}
+If image is too blurry, poorly lit, or no face is visible:
+Return error: "Image quality insufficient. Please retake in natural light, facing the camera directly." with null values for all fields.`;
 
-## Ingredient Naming Rules (IMPORTANT)
-Use these standard names for priority_ingredients to ensure accuracy:
-- Salicylic Acid (not BHA)
-- Vitamin C (not Ascorbic Acid)
-- Niacinamide (not Vitamin B3)
-- Retinol (not Vitamin A)
-- Hyaluronic Acid (not HA)
-- Glycolic Acid (not AHA)
-- Ceramides
-- Azelaic Acid
-- Kojic Acid`
-
+// ── Route Handler ──────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const startTime = Date.now();
+
   try {
     // 1. Auth
     const { userId } = await auth();
@@ -128,41 +177,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 2. Validate input
     const body = await req.json();
-    
-    // 1. Validate Input
-    const result = FullAnalyseSchema.safeParse(body);
-    if (!result.success) {
-      return NextResponse.json({ 
-        error: "Invalid input parameters", 
-        details: result.error.format() 
-      }, { status: 400 });
+    const validation = FullAnalyseSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid input parameters", details: validation.error.format() },
+        { status: 400 }
+      );
     }
 
-    const { imageBase64, paymentId, context } = result.data;
+    const { imageBase64, paymentId, context } = validation.data;
 
-    // ── Pre-Scan Personalization (Context) ───────────────────────────────────
-    const userContext = context ? `
-Patient Context:
-- Age Range: ${context.age}
-- Primary Concern: ${context.concern}
-- Lifestyle/Water: ${context.habits}
-` : "";
+    // 3. Build personalization context
+    const userContext = context
+      ? `Age Range: ${context.age ?? "unknown"}\nPrimary Concern: ${context.concern ?? "general"}\nWater Intake: ${context.habits ?? "unknown"}`
+      : "";
 
-    const finalPrompt = `${FULL_PROMPT}\n\n${userContext}`;
+    const finalPrompt = userContext
+      ? `${FULL_PROMPT}\n\n## Patient Context\n${userContext}`
+      : FULL_PROMPT;
 
-    // 2. Atomic Payment Consumption (prevents concurrent replay attacks)
+    // 4. Atomic payment consumption (prevents concurrent replay attacks)
     await dbConnect();
     const payment = await VerifiedPayment.findOneAndUpdate(
-      { 
-        paymentId, 
-        userId, 
-        usedAt: null // Only consume if not already used
-      }, 
-      { 
-        $set: { usedAt: new Date() } 
-      },
-      { new: true } // Return the updated document
+      { paymentId, userId, usedAt: null },
+      { $set: { usedAt: new Date() } },
+      { new: true }
     );
 
     if (!payment) {
@@ -172,7 +213,7 @@ Patient Context:
       );
     }
 
-    // 3. Generate with model fallback
+    // 5. Generate with model fallback chain
     const imageData = {
       inlineData: {
         mimeType: "image/jpeg" as const,
@@ -181,7 +222,7 @@ Patient Context:
     };
 
     let data: FullReportResult | null = null;
-    let lastError: unknown = null;
+    let modelUsed = "unknown";
 
     for (const modelName of MODEL_PRIORITY) {
       try {
@@ -189,51 +230,54 @@ Patient Context:
           model: modelName,
           generationConfig: {
             temperature: 0.2,
-            topP: 0.8,
-            maxOutputTokens: 2048, // Increased to prevent JSON truncation
+            topP: 0.85,
+            maxOutputTokens: 3000, // Increased to prevent JSON truncation on long routines
             responseMimeType: "application/json",
+            responseSchema: RESPONSE_SCHEMA as any,
           },
         });
 
-        // Boris: Latency Budgeting — 10s maximum for model generation
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 10000)
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 20000)
         );
 
         const result = await Promise.race([
           model.generateContent([finalPrompt, imageData]),
-          timeoutPromise
+          timeoutPromise,
         ]) as any;
 
         const text = result.response.text();
         data = safeParseJSON<FullReportResult>(text);
 
-        // Basic validation
-        if (!data.skin_type && !data.error) {
+        if (!data?.skin_type && !data?.error) {
           throw new Error("Model returned incomplete data");
         }
-        break; // success
+
+        modelUsed = modelName;
+        break;
+
       } catch (err: any) {
         const msg = String(err?.message ?? "");
-        const is429 = err?.status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
-        const is404 = err?.status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
+        const isQuota = err?.status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
+        const isNotFound = err?.status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
 
-        if (is429 || is404) {
+        if (isQuota || isNotFound) {
           console.warn(`[Gemini Full] ${modelName} unavailable, trying next…`);
-          lastError = err;
           continue;
         }
         throw err;
       }
     }
 
+    // 6. OpenRouter final fallback
     if (!data) {
-      console.warn("[Full Analysis] Gemini exhausted. Trying OpenRouter (Gemma 4 31B)...");
+      console.warn("[Full Analysis] All Gemini models exhausted. Trying OpenRouter…");
       try {
         const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
         data = safeParseJSON<FullReportResult>(text);
-        
-        if (!data.skin_type && !data.error) {
+        modelUsed = "openrouter-fallback";
+
+        if (!data?.skin_type && !data?.error) {
           throw new Error("OpenRouter returned incomplete data");
         }
       } catch (orErr: any) {
@@ -245,18 +289,24 @@ Patient Context:
       }
     }
 
-    // No longer need to mark as used here, as it was done atomically above.
+    // 7. Attach response metadata
+    const processingTimeMs = Date.now() - startTime;
+    const enrichedData: FullReportResult = {
+      ...data!,
+      _meta: { request_id: requestId, processing_time_ms: processingTimeMs, model_used: modelUsed },
+    };
 
-    // 5. Save scan history — fire-and-forget
+    // 8. Save scan history fire-and-forget
     void Scan.create({
       userId,
       type: "full",
-      result: data as unknown as Record<string, unknown>,
+      result: enrichedData as unknown as Record<string, unknown>,
     }).catch((e: Error) => console.warn("[MongoDB] Full scan save failed:", e.message));
 
-    return NextResponse.json(data);
+    return NextResponse.json(enrichedData);
+
   } catch (error) {
-    console.error("[Full analysis] Unhandled error:", error);
+    console.error(`[Full analysis] [${requestId}] Unhandled error:`, error);
     return NextResponse.json(
       { error: "Could not complete full analysis. Payment NOT charged. Please contact support." },
       { status: 500 }

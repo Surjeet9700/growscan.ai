@@ -6,9 +6,10 @@ export interface FaceZone {
   zone: "forehead" | "left_cheek" | "right_cheek" | "nose" | "chin";
   issue: string;
   severity: FaceZoneSeverity;
-  score: number; // 1-10 health index
-  x?: number; // 0-100%
-  y?: number; // 0-100%
+  score: number;   // 1–10 health index (10 = perfect)
+  x?: number;      // 0–100% horizontal position
+  y?: number;      // 0–100% vertical position
+  confidence?: number; // 0–1 model confidence for this zone
 }
 
 export interface SkinTip {
@@ -16,7 +17,15 @@ export interface SkinTip {
   urgency: "daily" | "weekly" | "lifestyle";
 }
 
-export interface FreeAnalysisResult {
+/** Numeric scores (0–100) for the 4 frontend metric rings */
+export interface SkinMetricScores {
+  acne_score: number;     // 0–100 (higher = more acne)
+  dryness_score: number;  // 0–100 (higher = drier)
+  spots_score: number;    // 0–100 (higher = more spots)
+  moisture_score: number; // 0–100 (higher = better hydrated)
+}
+
+export interface FreeAnalysisResult extends SkinMetricScores {
   skin_type: "oily" | "dry" | "combination" | "normal";
   skin_type_reason: string;
   top_concern: string;
@@ -28,6 +37,12 @@ export interface FreeAnalysisResult {
   primary_ingredient?: string;
   error: string | null;
   timestamp?: number;
+  // Response metadata
+  _meta?: {
+    request_id: string;
+    processing_time_ms: number;
+    model_used: string;
+  };
 }
 
 export interface SkinConcerns {
@@ -42,22 +57,54 @@ export interface SkinConcerns {
 
 export interface PriorityIngredient {
   ingredient: string;
+  scientific_role: string; // e.g. "Tyrosinase Inhibitor", "Humectant"
   reason: string;
+}
+
+/** A single step in a morning/night routine */
+export interface RoutineStep {
+  step: string;     // e.g. "Cleanser"
+  product: string;  // e.g. "Gentle low-pH cleanser"
+  purpose: string;  // e.g. "Purify without stripping"
+}
+
+/** Per-zone dermatological score block */
+export interface ZoneIntelligence {
+  score: number;       // 0–100
+  observation: string; // 1 sentence
+}
+
+/** Dermal health index triplet */
+export interface DermalIndices {
+  barrier_resistance: number;  // 0–100
+  luminosity_index: number;    // 0–100
+  clarity_score: number;       // 0–100
 }
 
 export interface FullReportResult {
   skin_type: "oily" | "dry" | "combination" | "normal";
   skin_type_reason: string;
+  zonal_intelligence: {
+    forehead: ZoneIntelligence;
+    cheeks: ZoneIntelligence;
+    t_zone: ZoneIntelligence;
+  };
   concerns: SkinConcerns;
-  skin_age_estimate: string;
+  skin_age_estimate: string; // e.g. "Appears 24–28 years..."
+  dermal_indices: DermalIndices;
   strengths: string[];
   priority_ingredients: PriorityIngredient[];
-  morning_routine_order: string[];
-  night_routine_order: string[];
+  morning_routine_order: RoutineStep[];
+  night_routine_order: RoutineStep[];
   lifestyle_tips: string[];
   recheck_in_weeks: number;
   summary: string;
   error: string | null;
+  _meta?: {
+    request_id: string;
+    processing_time_ms: number;
+    model_used: string;
+  };
 }
 
 export interface RazorpayHandlerResponse {

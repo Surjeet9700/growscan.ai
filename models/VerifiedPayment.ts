@@ -5,6 +5,8 @@ export interface IVerifiedPayment extends Document {
   paymentId: string;   // razorpay_payment_id
   orderId: string;     // razorpay_order_id
   userId: string;      // Clerk user ID
+  amount: number;      // Amount in paise (INR × 100) from Razorpay API
+  currency: string;    // e.g. "INR"
   usedAt: Date | null; // Set when the full report is generated — prevents reuse
   createdAt: Date;
 }
@@ -12,9 +14,11 @@ export interface IVerifiedPayment extends Document {
 const VerifiedPaymentSchema = new Schema<IVerifiedPayment>(
   {
     paymentId: { type: String, required: true, unique: true, index: true },
-    orderId: { type: String, required: true },
-    userId: { type: String, required: true, index: true },
-    usedAt: { type: Date, default: null },
+    orderId:   { type: String, required: true },
+    userId:    { type: String, required: true, index: true },
+    amount:    { type: Number, default: 0 },
+    currency:  { type: String, default: "INR" },
+    usedAt:    { type: Date, default: null },
   },
   { timestamps: true }
 );
