@@ -45,6 +45,7 @@ export default function ScanPage() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(true);
   const [qStep, setQStep] = useState(0);
   const [qData, setQData] = useState({ age: "", concern: "", habits: "" });
+  const [isLoaded, setIsLoaded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [stage, setStage] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
@@ -52,6 +53,18 @@ export default function ScanPage() {
 
   // ── PRE-LOAD MODELS ──────────────────────────────────────────────────────
   useEffect(() => {
+    const saved = localStorage.getItem("glowscan_qdata");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.age && parsed.concern && parsed.habits) {
+          setQData(parsed);
+          setShowQuestionnaire(false);
+        }
+      } catch (e) {}
+    }
+    setIsLoaded(true);
+
     import("@/lib/faceDetector").then(({ preloadFaceDetector }) => {
       preloadFaceDetector().then(() => setDetectorReady(true));
     }).catch(console.error);
@@ -157,19 +170,36 @@ export default function ScanPage() {
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <div className="px-5 pt-14 pb-3 flex items-center justify-between">
-        <Link href="/">
-          <button className="w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-90 transition-transform">
-            <ArrowLeft className="w-4.5 h-4.5 text-[#1A1A1A]" strokeWidth={2} />
-          </button>
-        </Link>
+        <button 
+          onClick={() => {
+            if (showQuestionnaire && qStep > 0) {
+               setQStep(prev => prev - 1);
+            } else {
+               router.push("/");
+            }
+          }}
+          className="w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-90 transition-transform">
+          <ArrowLeft className="w-4.5 h-4.5 text-[#1A1A1A]" strokeWidth={2} />
+        </button>
         <h1 className="text-[17px] font-black text-[#1A1A1A]">Scan Skin</h1>
-        <div className="w-10" />
+        {!showQuestionnaire && !analyzing ? (
+          <button 
+            onClick={() => {
+              setShowQuestionnaire(true);
+              setQStep(0);
+            }}
+            className="text-[14px] font-semibold text-[#A377D2] w-10 text-right active:opacity-70 transition-opacity">
+            Edit
+          </button>
+        ) : (
+          <div className="w-10" />
+        )}
       </div>
 
       {/* ── QUESTIONNAIRE / CAMERA ─────────────────────────────────────────── */}
       <div className="px-5 mt-2 relative">
         <AnimatePresence mode="wait">
-          {showQuestionnaire ? (
+          {!isLoaded ? null : showQuestionnaire ? (
             <motion.div
               key="questionnaire"
               initial={{ opacity: 0, y: 16 }}
@@ -259,7 +289,9 @@ export default function ScanPage() {
                         key={opt}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => {
-                          setQData({ ...qData, habits: opt });
+                          const newData = { ...qData, habits: opt };
+                          setQData(newData);
+                          localStorage.setItem("glowscan_qdata", JSON.stringify(newData));
                           setShowQuestionnaire(false);
                         }}
                         className="w-full bg-white rounded-[20px] px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)] flex items-center justify-between text-[14px] font-semibold text-[#1A1A1A] active:bg-[#F3EEFB] border border-transparent active:border-[#A377D2]/20 transition-all"

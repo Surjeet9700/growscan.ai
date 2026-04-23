@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     const updatedRoutine = await Routine.findOneAndUpdate(
       { userId, dateString },
       { $set: { [`items.${field}`]: value } },
-      { new: true, upsert: true }
+      { returnDocument: "after", upsert: true }
     ).lean();
 
     return NextResponse.json({ success: true, routine: updatedRoutine });

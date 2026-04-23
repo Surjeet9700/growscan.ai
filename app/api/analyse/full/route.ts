@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
     const payment = await VerifiedPayment.findOneAndUpdate(
       { paymentId, userId, usedAt: null },
       { $set: { usedAt: new Date() } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!payment) {
