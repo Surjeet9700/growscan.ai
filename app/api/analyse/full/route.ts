@@ -269,14 +269,9 @@ export async function POST(req: NextRequest) {
 
       } catch (err: any) {
         const msg = String(err?.message ?? "");
-        const isQuota = err?.status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
-        const isNotFound = err?.status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
-
-        if (isQuota || isNotFound) {
-          console.warn(`[Gemini Full] ${modelName} unavailable, trying next…`);
-          continue;
-        }
-        throw err;
+        
+        console.warn(`[Gemini Full] ${modelName} failed (${msg}), trying next…`);
+        continue;
       }
     }
 

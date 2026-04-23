@@ -100,6 +100,7 @@ export default function ProfilePage() {
   };
 
   const MENU_ITEMS: (MenuItem & { delay?: number })[] = [
+    ...(isPremium ? [{ icon: Sparkles, label: "My Pro Report", href: "/result/full" }] : []),
     { icon: User,        label: "Edit Profile",      href: "/profile/edit" },
     { icon: CheckSquare, label: "Checklist",          href: "/history"      },
     { icon: Lock,        label: "Change Password",    href: "/profile/security" },

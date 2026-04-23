@@ -122,14 +122,10 @@ async function runWithFallback(
       const status = err?.status ?? 0;
       const msg = String(err?.message ?? "");
       const isQuota = status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
-      const isNotFound = status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found");
-
-      if (isQuota || isNotFound) {
-        console.warn(`[Gemini Free] ${modelName} unavailable (${isQuota ? "quota" : "not found"}), trying next…`);
-        lastError = err;
-        continue;
-      }
-      throw err; // Surface non-quota errors immediately
+      
+      console.warn(`[Gemini Free] ${modelName} failed (${msg}), trying next…`);
+      lastError = err;
+      continue;
     }
   }
 
