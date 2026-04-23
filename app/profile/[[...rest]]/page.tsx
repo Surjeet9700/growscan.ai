@@ -85,8 +85,11 @@ export default function ProfilePage() {
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
-    // Check if the user has unlocked the pro report
-    if (localStorage.getItem("glowscan_report")) {
+    // Check premium via dedicated flag (set by StateSync from DB)
+    // OR via the presence of a full report in localStorage (legacy/local flow)
+    const hasFlag   = localStorage.getItem("glowscan_is_premium") === "true";
+    const hasReport = !!localStorage.getItem("glowscan_report");
+    if (hasFlag || hasReport) {
       setIsPremium(true);
     }
   }, []);
