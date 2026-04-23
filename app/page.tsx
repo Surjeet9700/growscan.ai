@@ -320,7 +320,7 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
-        className="px-5"
+        className="px-5 mb-5"
       >
         <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between mb-1">
@@ -336,6 +336,83 @@ export default function HomePage() {
             {WATCHLIST.map((item, i) => (
               <WatchlistItem key={i} {...item} delay={0.28 + i * 0.07} />
             ))}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── PRICING SECTION ─────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="px-5 mb-5"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[16px] font-black text-[#1A1A1A]">Upgrade to Pro</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {/* Monthly Subscription */}
+          <div className="bg-gradient-to-br from-[#A377D2] to-[#7B4FC2] rounded-[24px] p-5 shadow-[0_4px_20px_rgba(163,119,210,0.3)]">
+            <div className="flex items-center justify-between">
+              <p className="text-[14px] font-bold text-white">GlowScan Pro</p>
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-[10px] font-bold text-white tracking-wide">BEST VALUE</span>
+            </div>
+            <div className="flex items-end gap-1 mt-1 mb-3">
+              <span className="text-[32px] font-black text-white leading-none">₹299</span>
+              <span className="text-[12px] text-white/80 font-medium pb-1">/ month</span>
+            </div>
+            <ul className="space-y-2.5 mb-5">
+              <li className="flex items-center gap-2 text-[13px] font-medium text-white/95">
+                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                </div>
+                Unlimited full clinical scans
+              </li>
+              <li className="flex items-center gap-2 text-[13px] font-medium text-white/95">
+                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                </div>
+                30-day progress tracking
+              </li>
+              <li className="flex items-center gap-2 text-[13px] font-medium text-white/95">
+                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                </div>
+                Personalized product matching
+              </li>
+            </ul>
+            <button className="w-full py-3.5 rounded-full bg-white text-[#A377D2] font-black text-[14px] shadow-sm active:scale-[0.98] transition-transform">
+              Subscribe Now
+            </button>
+          </div>
+
+          {/* Pay Per Report */}
+          <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)] border border-black/[0.04]">
+            <p className="text-[14px] font-bold text-[#1A1A1A]">Single Scan</p>
+            <div className="flex items-end gap-1 mt-1 mb-3">
+              <span className="text-[28px] font-black text-[#1A1A1A] leading-none">₹29</span>
+              <span className="text-[12px] text-[#9A9A9A] font-medium pb-1">/ report</span>
+            </div>
+            <ul className="space-y-2 mb-4">
+              <li className="flex items-center gap-2 text-[12px] text-[#666]">
+                <div className="w-3.5 h-3.5 rounded-full bg-[#F3EEFB] flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 bg-[#A377D2] rounded-full" />
+                </div>
+                Full clinical breakdown
+              </li>
+              <li className="flex items-center gap-2 text-[12px] text-[#666]">
+                <div className="w-3.5 h-3.5 rounded-full bg-[#F3EEFB] flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 bg-[#A377D2] rounded-full" />
+                </div>
+                5-Zone face mapping
+              </li>
+            </ul>
+            <Link href="/scan">
+              <button className="w-full py-3 rounded-full bg-[#F3EEFB] text-[#A377D2] font-black text-[13px] active:scale-[0.98] transition-transform">
+                Get Single Report
+              </button>
+            </Link>
           </div>
         </div>
       </motion.div>

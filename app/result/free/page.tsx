@@ -225,38 +225,28 @@ export default function FreeResultPage() {
         )}
       </div>
 
-      {/* ── FACE ZONE OVERLAY (Hero section) ─────────────────────────────── */}
-      {scanImage && faceZones.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-          className="px-5 mb-4"
-        >
-          <FaceZoneOverlay imageBase64={scanImage} zones={faceZones} />
-          <ZoneLegend zones={faceZones} />
-        </motion.div>
-      )}
-
-      {/* Fallback if no image — show avatar initials */}
-      {!scanImage && faceZones.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="px-5 mb-4"
-        >
-          <div className="w-full h-56 bg-gradient-to-br from-[#F3EEFB] to-[#EDE0FF] rounded-[28px] flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-[#A377D2]/20 mx-auto mb-3 flex items-center justify-center">
-                <span className="text-[28px]">✨</span>
-              </div>
-              <p className="text-[12px] font-semibold text-[#A377D2]">Analysis complete</p>
+      {/* ── LOCKED FACE ZONE OVERLAY (Hero section) ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+        className="px-5 mb-4 relative"
+      >
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-md rounded-[28px] mx-5 mb-4 inset-x-0 bottom-0 mt-[1px] shadow-inner">
+           <Lock className="w-8 h-8 text-white drop-shadow-md mb-2" />
+           <p className="text-[14px] font-black text-white drop-shadow-md tracking-wide">Unlock 5-Zone Mapping</p>
+           <p className="text-[10px] font-semibold text-white/90 drop-shadow-md mt-1">Available in Pro Report</p>
+        </div>
+        <div className="opacity-40 pointer-events-none select-none overflow-hidden rounded-[28px]">
+          {scanImage ? (
+            <img src={scanImage} alt="Scan" className="w-full aspect-[3/4] object-cover" />
+          ) : (
+            <div className="w-full h-64 bg-gradient-to-br from-[#F3EEFB] to-[#EDE0FF] flex items-center justify-center">
+               <span className="text-[40px]">✨</span>
             </div>
-          </div>
-          <ZoneLegend zones={faceZones} />
-        </motion.div>
-      )}
+          )}
+        </div>
+      </motion.div>
 
       {/* ── SKIN AGE + HEALTH ROW ────────────────────────────────────────── */}
       <motion.div
@@ -300,17 +290,22 @@ export default function FreeResultPage() {
         </div>
       </motion.div>
 
-      {/* ── 4 METRIC GRID ────────────────────────────────────────────────── */}
+      {/* ── LOCKED 4 METRIC GRID ────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="px-5 mb-4"
+        className="px-5 mb-4 relative"
       >
-        <div className="grid grid-cols-4 gap-2">
-          {METRICS.map((m, i) => (
-            <MetricTile key={i} {...m} delay={0.18 + i * 0.05} />
-          ))}
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm rounded-[24px] mx-5 mt-[1px]">
+           <Lock className="w-5 h-5 text-[#A377D2] mb-1" />
+           <p className="text-[11px] font-black text-[#A377D2] uppercase tracking-wider">Unlock Clinical Metrics</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2 opacity-30 pointer-events-none select-none blur-[2px]">
+          <MetricTile label="Acne" value={60} color="#F87171" trend="ok" delay={0} />
+          <MetricTile label="Dryness" value={45} color="#FBBF24" trend="ok" delay={0} />
+          <MetricTile label="Spots" value={30} color="#A377D2" trend="ok" delay={0} />
+          <MetricTile label="Moisture" value={80} color="#34D399" trend="ok" delay={0} />
         </div>
       </motion.div>
 

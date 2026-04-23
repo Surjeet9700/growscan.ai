@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -13,6 +14,7 @@ import {
   Globe,
   LogOut,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 interface MenuItem {
@@ -80,6 +82,15 @@ export default function ProfilePage() {
   const { signOut } = useClerk();
   const router = useRouter();
 
+  const [isPremium, setIsPremium] = useState(false);
+
+  useEffect(() => {
+    // Check if the user has unlocked the pro report
+    if (localStorage.getItem("glowscan_report")) {
+      setIsPremium(true);
+    }
+  }, []);
+
   const firstName = user?.firstName ?? "Friend";
   const lastName = user?.lastName ?? "";
   const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
@@ -144,9 +155,17 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        <h2 className="text-[20px] font-black text-[#1A1A1A]">
-          {firstName} {lastName}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-[20px] font-black text-[#1A1A1A]">
+            {firstName} {lastName}
+          </h2>
+          {isPremium && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-[#A377D2] to-[#7B4FC2] rounded-full shadow-sm">
+              <Sparkles className="w-3 h-3 text-white" />
+              <span className="text-[10px] font-bold text-white uppercase tracking-wider">Pro</span>
+            </div>
+          )}
+        </div>
         {email && (
           <p className="text-[13px] text-[#9A9A9A] mt-0.5">{email}</p>
         )}

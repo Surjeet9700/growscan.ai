@@ -61,6 +61,8 @@ const RESPONSE_SCHEMA = {
       },
       required: ["pigmentation","acne_or_breakouts","dark_circles","pores","texture","hydration","oiliness"],
     },
+    fitzpatrick_scale: { type: "STRING", enum: ["Type I", "Type II", "Type III", "Type IV", "Type V", "Type VI"] },
+    iga_acne_scale: { type: "STRING", enum: ["0 - Clear", "1 - Almost Clear", "2 - Mild", "3 - Moderate", "4 - Severe"] },
     skin_age_estimate: { type: "STRING" },
     dermal_indices: {
       type: "OBJECT",
@@ -115,6 +117,7 @@ const RESPONSE_SCHEMA = {
   },
   required: [
     "skin_type","skin_type_reason","zonal_intelligence","concerns",
+    "fitzpatrick_scale", "iga_acne_scale",
     "skin_age_estimate","dermal_indices","strengths","priority_ingredients",
     "morning_routine_order","night_routine_order","lifestyle_tips",
     "recheck_in_weeks","summary",
@@ -123,8 +126,8 @@ const RESPONSE_SCHEMA = {
 
 // ── Full dermatologist report prompt ──────────────────────────────────────────
 // This is the PAID report — comprehensive, warm, specific, actionable.
-const FULL_PROMPT = `You are a board-certified dermatologist AI with deep expertise in South and Southeast Asian skin (Fitzpatrick III–V).
-You are generating a PAID "Skin Report Card". This must be professional, specific, and immediately actionable.
+const FULL_PROMPT = `You are a board-certified dermatologist AI with deep expertise in clinical grading scales and South/Southeast Asian skin (Fitzpatrick III–V).
+You are generating a PAID "Skin Report Card". This must be professional, specific, and immediately actionable, utilizing medical-grade terminology where appropriate.
 
 ## South/Southeast Asian Skin Intelligence
 - Melanin-rich skin: PIH (post-inflammatory hyperpigmentation) is the #1 cosmetic complaint — not wrinkles
@@ -132,7 +135,15 @@ You are generating a PAID "Skin Report Card". This must be professional, specifi
 - Skin barrier damage is underdiagnosed in this demographic — look for subtle redness, tightness signals
 - Niacinamide, azelaic acid, kojic acid, and Vitamin C are proven for this skin type
 - SPF is critical year-round — UV is the accelerant of all pigmentation issues
-- Avoid recommending high-strength retinoids without barrier repair context
+
+## Clinical Grading Standard
+1. Fitzpatrick Scale (I-VI): Assess melanin density and sun reactivity. (Note: Most users will be III, IV, or V).
+2. Investigator's Global Assessment (IGA) for Acne:
+   - 0 - Clear: No inflammatory or noninflammatory lesions
+   - 1 - Almost Clear: Rare noninflammatory lesions, <= 1 small inflammatory lesion
+   - 2 - Mild: Some noninflammatory lesions, few inflammatory lesions (papules/pustules)
+   - 3 - Moderate: Many noninflammatory lesions, some inflammatory lesions
+   - 4 - Severe: Up to many noninflammatory/inflammatory lesions, presence of nodules
 
 ## Your Task
 Analyze EVERY visible aspect of the face photograph:
@@ -231,14 +242,14 @@ export async function POST(req: NextRequest) {
           generationConfig: {
             temperature: 0.2,
             topP: 0.85,
-            maxOutputTokens: 3000, // Increased to prevent JSON truncation on long routines
+            maxOutputTokens: 8192, // Increased to prevent JSON truncation on long routines
             responseMimeType: "application/json",
             responseSchema: RESPONSE_SCHEMA as any,
           },
         });
 
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 20000)
+          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 50000)
         );
 
         const result = await Promise.race([

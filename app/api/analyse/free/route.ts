@@ -34,58 +34,19 @@ const RESPONSE_SCHEMA = {
     skin_age_estimate:{ type: "INTEGER" },
     primary_ingredient: { type: "STRING" },
     preview_insight:  { type: "STRING" },
-    // 4 metric ring scores — 0 to 100
-    acne_score:       { type: "INTEGER" },
-    dryness_score:    { type: "INTEGER" },
-    spots_score:      { type: "INTEGER" },
-    moisture_score:   { type: "INTEGER" },
-    face_zones: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          zone:       { type: "STRING", enum: ["forehead","left_cheek","right_cheek","nose","chin"] },
-          issue:      { type: "STRING" },
-          severity:   { type: "STRING", enum: ["none","mild","moderate","severe"] },
-          score:      { type: "INTEGER" },
-          confidence: { type: "NUMBER" },
-        },
-        required: ["zone","issue","severity","score"],
-      },
-    },
-    skin_tips: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          tip:     { type: "STRING" },
-          urgency: { type: "STRING", enum: ["daily","weekly","lifestyle"] },
-        },
-        required: ["tip","urgency"],
-      },
-    },
     error: { type: "STRING", nullable: true },
   },
   required: [
     "skin_type","skin_type_reason","top_concern","glow_score",
-    "preview_insight","face_zones","skin_tips",
-    "acne_score","dryness_score","spots_score","moisture_score",
+    "preview_insight", "primary_ingredient"
   ],
 } as const;
 
 // ── Production-grade dermatologist prompt ──────────────────────────────────────
-// Key improvements vs v1:
-// 1. Explicit 0–100 metric scores for acne/dryness/spots/moisture (matches frontend rings)
-// 2. Zone confidence scores for UI low-confidence warnings
-// 3. Tighter free-tier "preview_insight" strategy (tease → upgrade)
-// 4. South/Southeast Asian skin context is more specific
 const SKIN_PROMPT = `You are a clinical AI dermatologist trained on hundreds of thousands of skin images. Your analysis is calibrated for South and Southeast Asian skin tones (Fitzpatrick III–V).
 
 ## Your Task
 Produce a FREE tier skin preview. Focus ONLY on what is clearly visible. Do NOT hallucinate features hidden from view or assume based on demographics.
-
-## Input Image
-A selfie or portrait photograph of a face. Analyze: skin texture, shine/oil, visible blemishes, pigmentation, pore visibility, under-eye area, and overall complexion uniformity.
 
 ## South/Southeast Asian Skin Context
 - Melanin-rich skin ages differently — PIH (post-inflammatory hyperpigmentation) is MORE common than textural scarring
@@ -96,20 +57,12 @@ A selfie or portrait photograph of a face. Analyze: skin texture, shine/oil, vis
 
 ## CRITICAL Score Calibration
 - glow_score 1–10: Most real-world users score 5–7. Reserve 9–10 for genuinely radiant skin. Only use 1–2 for severely problematic skin.
-- face_zone scores 1–10: 10 = perfect health, <5 = significant concern. The WORST zone must be at least 2 points LOWER than the best zone.
-- acne_score 0–100: 0 = none, 100 = severe cystic acne. Most users: 10–50.
-- dryness_score 0–100: 0 = well hydrated, 100 = severely dry/flaking. Most users: 15–55.
-- spots_score 0–100: 0 = no pigmentation, 100 = heavy hyperpigmentation/melasma. Most users: 10–60.
-- moisture_score 0–100: 0 = severely dehydrated, 100 = perfectly hydrated. Most users: 40–75.
-- zone confidence 0–1: Use 0.9–1.0 if clearly visible, 0.5–0.7 if partially obscured, 0.3–0.5 if guessed.
 
 ## FREE Tier Rules
 - DIAGNOSTIC only — tell them WHAT you see, not HOW to fix it
-- skin_tips: provide exactly 3 tips (one each: daily, weekly, lifestyle). Do NOT name specific ingredients in tips.
 - primary_ingredient: the single most-needed ingredient (this is the locked-away hook for the paid report)
 - preview_insight: 1–2 sentences revealing ONE compelling observation that TEASES the full report. Must create urgency without giving away the solution.
 - Never use "I", "we", "our" in output text
-- face_zones: include ALL 5 zones. If healthy, set severity "none", issue "Clear, healthy appearance", score 9–10
 - Keep all strings under 150 characters except preview_insight (max 250 chars)
 
 ## Error Handling
@@ -141,14 +94,14 @@ async function runWithFallback(
         generationConfig: {
           temperature: 0.25,
           topP: 0.85,
-          maxOutputTokens: 1536,
+          maxOutputTokens: 4096,
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA as any,
         },
       });
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 15000)
+        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 25000)
       );
 
       const result = await Promise.race([
@@ -162,9 +115,6 @@ async function runWithFallback(
       // Strict validation — reject if core fields missing
       if (!parsed?.skin_type) throw new Error("Incomplete response: missing skin_type");
       if (parsed.glow_score === undefined) throw new Error("Incomplete response: missing glow_score");
-      if (!Array.isArray(parsed.face_zones) || parsed.face_zones.length === 0) {
-        throw new Error("Incomplete response: missing face_zones");
-      }
 
       return { data: parsed, modelUsed: modelName };
 
