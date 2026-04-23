@@ -12,9 +12,27 @@ import {
   TrendingUp,
   Sparkles,
   Lock,
+  ArrowRight,
 } from "lucide-react";
 import type { FreeAnalysisResult } from "@/lib/types";
 import { FaceZoneOverlay, ZoneLegend } from "@/components/FaceZoneOverlay";
+
+// ── Amazon product card type ──────────────────────────────────────────────────
+interface AmazonCard {
+  asin: string;
+  title: string;
+  brand: string;
+  image: string | null;
+  price: string | null;
+  url?: string;
+}
+
+// Static fallback cards (shown before Amazon API loads)
+const FALLBACK_PRODUCTS: AmazonCard[] = [
+  { asin: "f1", title: "Minimalist Niacinamide 10% Face Serum", brand: "Minimalist", image: null, price: "₹599", url: "https://www.minimalistcare.com/products/niacinamide" },
+  { asin: "f2", title: "Mamaearth Skin Illuminate Vitamin C Serum", brand: "Mamaearth", image: null, price: "₹399", url: "https://mamaearth.in/product/skin-illuminate-vitamin-c-serum" },
+  { asin: "f3", title: "mCaffeine Naked & Raw Coffee Face Wash", brand: "mCaffeine", image: null, price: "₹249", url: "https://www.mcaffeine.com/products/coffee-face-wash" },
+];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getSkinHealthPct(score: number) {
@@ -165,11 +183,27 @@ export default function FreeResultPage() {
     },
   ];
 
-  const PRODUCTS = [
-    { name: "Tarte Serum",      brand: "Tarte",    price: "₹2,400" },
-    { name: "Anua Toner",       brand: "Anua",     price: "₹1,280" },
-    { name: "Skin Moisturizer", brand: "Klairs",   price: "₹1,800" },
-  ];
+  // ── Amazon / Static product cards ─────────────────────────────────────────
+  const [amazonProducts, setAmazonProducts] = useState<AmazonCard[]>([]);
+
+  useEffect(() => {
+    // Fetch relevant products based on the scan's skin type
+    const query = result
+      ? `${result.skin_type ?? "combination"} skin serum`
+      : "niacinamide serum";
+
+    fetch(`/api/products?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((data: AmazonCard[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setAmazonProducts(data.slice(0, 3));
+        } else {
+          // Static fallback
+          setAmazonProducts(FALLBACK_PRODUCTS);
+        }
+      })
+      .catch(() => setAmazonProducts(FALLBACK_PRODUCTS));
+  }, [result?.skin_type]);
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] pb-32 font-[var(--font-poppins)]">
@@ -365,7 +399,7 @@ export default function FreeResultPage() {
         </div>
       </motion.div>
 
-      {/* ── RECOMMENDED PRODUCTS ────────────────────────────────────────── */}
+      {/* ── RECOMMENDED PRODUCTS (Amazon-powered) ────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
@@ -379,8 +413,36 @@ export default function FreeResultPage() {
           </Link>
         </div>
         <div className="flex gap-3 px-5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {PRODUCTS.map((p, i) => (
-            <ProductRec key={i} {...p} delay={0.34 + i * 0.06} />
+          {(amazonProducts.length > 0 ? amazonProducts : FALLBACK_PRODUCTS).map((p, i) => (
+            <motion.div
+              key={p.asin}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.34 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-shrink-0 w-36 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
+            >
+              {/* Product image */}
+              <div className="w-full h-28 bg-[#F3EEFB] rounded-[14px] mb-3 flex items-center justify-center overflow-hidden">
+                {p.image ? (
+                  <img src={p.image} alt={p.title} className="w-full h-full object-contain p-2" />
+                ) : (
+                  <ShoppingBag className="w-7 h-7 text-[#A377D2]/30" />
+                )}
+              </div>
+              <p className="text-[10px] text-[#9A9A9A]">{p.brand}</p>
+              <p className="text-[13px] font-bold text-[#1A1A1A] leading-tight line-clamp-1">{p.title}</p>
+              <p className="text-[13px] font-black text-[#A377D2] mt-1">{p.price ?? "—"}</p>
+              {p.url && (
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 flex items-center gap-1 text-[10px] font-bold text-[#A377D2]"
+                >
+                  View <ArrowRight className="w-3 h-3" />
+                </a>
+              )}
+            </motion.div>
           ))}
         </div>
       </motion.div>

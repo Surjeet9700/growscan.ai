@@ -5,6 +5,7 @@
 // 1. Guard against window.Razorpay not yet loaded
 // 2. Proper TypeScript types — no more `any`
 // 3. Integrated premium ProcessingOverlay for post-payment flow
+// 4. Fixed icon alignment and className merge
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import type { RazorpayHandlerResponse } from "@/lib/types";
 import { ProcessingOverlay } from "./ProcessingOverlay";
+import { cn } from "@/lib/utils";
 
 // Minimal Razorpay type — enough to avoid window.any casts
 interface RazorpayOptions {
@@ -178,20 +180,31 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
       <button
         onClick={handlePayment}
         disabled={loading || processing}
-        className={`${className || "w-full h-12 bg-white text-black rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"} ${shouldBuzz ? 'animate-haptic' : ''} ${isDiscounted ? 'bg-[#A377D2] text-white' : ''}`}
+        className={cn(
+          "w-full h-12 rounded-full font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg",
+          isDiscounted
+            ? "bg-[#A377D2] text-white shadow-[0_4px_16px_rgba(163,119,210,0.4)]"
+            : "bg-white text-black border border-black/10",
+          shouldBuzz && "animate-haptic",
+          className
+        )}
       >
         {loading ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Connecting...
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            <span>Connecting...</span>
           </>
         ) : (
           <>
-            {isDiscounted ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            {label || (isDiscounted ? "Unlock Full Report — ₹29" : "Unlock Full Report — ₹49")}
+            {isDiscounted
+              ? <Sparkles className="w-4 h-4 shrink-0" />
+              : <Lock className="w-4 h-4 shrink-0" />
+            }
+            <span>{label || (isDiscounted ? "Unlock Full Report — ₹29" : "Unlock Full Report — ₹49")}</span>
           </>
         )}
       </button>
     </>
   );
 }
+

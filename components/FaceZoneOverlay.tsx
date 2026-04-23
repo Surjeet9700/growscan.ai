@@ -316,28 +316,55 @@ export function FaceZoneOverlay({ imageBase64, zones, className = "" }: FaceZone
 }
 
 // ── Zone legend row (for use below the overlay) ───────────────────────────────
+// Shows ALL zones as soft-opacity pills in a horizontal scroll row.
+// Colors match severity — opacity is kept very low (12%) for a premium soft look.
 export function ZoneLegend({ zones }: { zones: FaceZone[] }) {
-  const concernZones = zones.filter((z) => z.severity !== "none");
-  if (concernZones.length === 0) return null;
+  if (!zones || zones.length === 0) return null;
+
+  // Order: forehead first, then cheeks, then nose, chin
+  const ORDER = ["forehead", "left_cheek", "right_cheek", "nose", "chin"];
+  const sorted = [...zones].sort(
+    (a, b) => ORDER.indexOf(a.zone) - ORDER.indexOf(b.zone)
+  );
 
   return (
-    <div className="flex flex-wrap gap-2 mt-3">
-      {concernZones.map((zone) => {
+    <div
+      className="flex gap-2 mt-3 overflow-x-auto pb-1"
+      style={{ scrollbarWidth: "none" }}
+    >
+      {sorted.map((zone) => {
         const color = getZoneColor(zone.severity);
+        const isHealthy = zone.severity === "none";
         return (
-          <div
+          <motion.div
             key={zone.zone}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
-            style={{ background: color.stroke + "18" }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{
+              background: color.stroke + (isHealthy ? "0D" : "15"),
+              border: `1px solid ${color.stroke}${isHealthy ? "20" : "30"}`,
+            }}
           >
+            {/* Soft glow dot */}
             <div
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: color.stroke, boxShadow: `0 0 4px ${color.stroke}` }}
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{
+                background: color.stroke,
+                opacity: isHealthy ? 0.5 : 1,
+                boxShadow: isHealthy
+                  ? "none"
+                  : `0 0 5px ${color.stroke}90`,
+              }}
             />
-            <span className="text-[11px] font-semibold capitalize" style={{ color: color.stroke }}>
+            <span
+              className="text-[11px] font-semibold capitalize whitespace-nowrap"
+              style={{ color: color.stroke, opacity: isHealthy ? 0.6 : 1 }}
+            >
               {zone.zone.replace("_", " ")}
             </span>
-          </div>
+          </motion.div>
         );
       })}
     </div>

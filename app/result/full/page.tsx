@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, Clock, Droplets, Leaf, Share, Sparkles,
-  Sun, Moon, CheckCircle, MapPin, ScanEye, Activity,
-  ShieldCheck, Star, Zap, ChevronRight, MessageCircle,
-  ArrowRight, RotateCcw
+  ArrowLeft, Sparkles,
+  Sun, Moon, CheckCircle, ScanEye, Activity,
+  ShieldCheck, Star, ChevronRight, MessageCircle,
+  ArrowRight, Leaf, ExternalLink
 } from "lucide-react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import type { FaceZone } from "@/lib/types";
 import { CONFIG } from "@/lib/constants";
 import { getProductsForIngredient } from "@/lib/affiliateProducts";
 import { MetricPill } from "@/components/ui/diagnostic/MetricPill";
@@ -18,6 +16,111 @@ import { SkinHealthBar } from "@/components/ui/diagnostic/SkinHealthBar";
 import { GlassResultCard } from "@/components/ui/diagnostic/GlassResultCard";
 import { SkinProgressChart } from "@/components/ui/diagnostic/SkinProgressChart";
 import { GlowLogo } from "@/components/ui/branding/GlowLogo";
+
+// ── Amazon Product Card (fetches from /api/products) ─────────────────────────
+interface AmazonProduct {
+  asin: string;
+  title: string;
+  brand: string;
+  image: string | null;
+  price: string | null;
+  url: string;
+}
+
+function AmazonProductCard({ ingredient }: { ingredient: string }) {
+  const [product, setProduct] = useState<AmazonProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const keyword = ingredient.replace(/\(.*?\)/g, "").trim(); // strip percentages
+    fetch(`/api/products?q=${encodeURIComponent(keyword)}`)
+      .then((r) => r.json())
+      .then((data: AmazonProduct[]) => {
+        if (data && data.length > 0) setProduct(data[0]);
+        else {
+          // fallback to static
+          const staticData = getProductsForIngredient(ingredient);
+          if (staticData.length > 0) {
+            setProduct({
+              asin: "static",
+              title: staticData[0].name,
+              brand: staticData[0].brand,
+              image: staticData[0].image ?? null,
+              price: staticData[0].price,
+              url: staticData[0].url,
+            });
+          }
+        }
+      })
+      .catch(() => {
+        const staticData = getProductsForIngredient(ingredient);
+        if (staticData.length > 0) {
+          setProduct({
+            asin: "static",
+            title: staticData[0].name,
+            brand: staticData[0].brand,
+            image: staticData[0].image ?? null,
+            price: staticData[0].price,
+            url: staticData[0].url,
+          });
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [ingredient]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-[40px] p-6 border border-[#F6F1FB] flex gap-5 items-center shadow-sm animate-pulse">
+        <div className="w-24 h-24 rounded-[32px] bg-[#F6F6F6] shrink-0" />
+        <div className="flex-1 space-y-3">
+          <div className="h-3 bg-[#F6F6F6] rounded-full w-1/3" />
+          <div className="h-4 bg-[#F6F6F6] rounded-full w-2/3" />
+          <div className="h-3 bg-[#F6F6F6] rounded-full w-1/4" />
+          <div className="h-9 bg-[#F6F6F6] rounded-full w-28 mt-2" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true }}
+      className="bg-white rounded-[40px] p-6 border border-[#F6F1FB] flex gap-5 items-center shadow-sm"
+    >
+      {/* Product image or placeholder */}
+      <div className="w-24 h-24 rounded-[32px] bg-[#F6F6F6] flex items-center justify-center border border-black/5 shrink-0 overflow-hidden">
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.title}
+            className="w-full h-full object-contain p-1"
+          />
+        ) : (
+          <Sparkles className="w-8 h-8 text-[#A377D2]" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-bold text-[#A377D2] uppercase tracking-widest mb-1">{product.brand}</p>
+        <h5 className="text-sm font-bold text-[#2F2F30] leading-tight mb-1 line-clamp-2">{product.title}</h5>
+        {product.price && (
+          <p className="text-xs font-bold text-black/30 mb-4">{product.price}</p>
+        )}
+        <a
+          href={product.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-[11px] font-black text-white bg-[#A377D2] px-5 py-2.5 rounded-full active:scale-95 transition-all shadow-md shadow-[#A377D2]/20"
+        >
+          View Product <ArrowRight className="w-3.5 h-3.5 stroke-[2px]" />
+        </a>
+      </div>
+    </motion.div>
+  );
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +181,7 @@ const SAMPLE_REPORT = {
 function FullResultContent() {
   const [data, setData] = useState<any>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [scanTimestamp, setScanTimestamp] = useState<number | undefined>(undefined);
   const router = useRouter();
 
   const searchParams = useSearchParams();
@@ -87,6 +191,7 @@ function FullResultContent() {
     if (isSample) {
       setData(SAMPLE_REPORT.report);
       setImage("/hero.png");
+      setScanTimestamp(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago (sample)
       return;
     }
 
@@ -97,6 +202,7 @@ function FullResultContent() {
       const parsed = JSON.parse(raw);
       setData(parsed.report);
       setImage(img);
+      setScanTimestamp(parsed.timestamp ?? Date.now());
     } catch {
       router.push("/");
     }
@@ -199,7 +305,10 @@ function FullResultContent() {
           </button>
         </GlassResultCard>
 
-        <SkinProgressChart />
+        <SkinProgressChart
+          lastScanDate={scanTimestamp}
+          recheckWeeks={data?.recheck_in_weeks ?? 4}
+        />
       </div>
 
       {/* ── SUMMARY ── */}
@@ -379,46 +488,17 @@ function FullResultContent() {
         </div>
       </div>
 
-      {/* ── SHOP YOUR ROUTINE ── */}
+      {/* ── SHOP YOUR ROUTINE — Amazon-powered ── */}
       <div className="px-5 mt-14">
         <div className="flex items-center justify-between mb-6 px-1">
           <h4 className="text-xl font-bold text-[#2F2F30]">Shop Your Routine</h4>
-          <span className="text-[9px] font-bold text-black/20 uppercase tracking-[0.2em]">Affiliate Powered</span>
+          <span className="text-[9px] font-bold text-black/20 uppercase tracking-[0.2em]">Amazon India</span>
         </div>
         
         <div className="space-y-5">
-          {data.priority_ingredients?.map((item: any, i: number) => {
-            const products = getProductsForIngredient(item.ingredient);
-            if (!products || products.length === 0) return null;
-            const product = products[0];
-
-            return (
-              <motion.div
-                key={`prod-${i}`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="bg-white rounded-[40px] p-6 border border-[#F6F1FB] flex gap-5 items-center shadow-sm"
-              >
-                <div className="w-24 h-24 rounded-[32px] bg-[#F6F6F6] flex items-center justify-center border border-black/5 shrink-0 overflow-hidden text-[#A377D2]">
-                   <Sparkles className="w-8 h-8" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-[#A377D2] uppercase tracking-widest mb-1">{product.brand}</p>
-                  <h5 className="text-sm font-bold text-[#2F2F30] leading-tight mb-1 line-clamp-2">{product.name}</h5>
-                  <p className="text-xs font-bold text-black/20 mb-4">{product.price}</p>
-                  <a 
-                    href={product.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-[11px] font-black text-white bg-[#A377D2] px-5 py-2.5 rounded-full active:scale-95 transition-all shadow-md shadow-[#A377D2]/20"
-                  >
-                    View Product <ArrowRight className="w-3.5 h-3.5 stroke-[2px]" />
-                  </a>
-                </div>
-              </motion.div>
-            );
-          })}
+          {data.priority_ingredients?.map((item: any, i: number) => (
+            <AmazonProductCard key={`prod-${i}`} ingredient={item.ingredient} />
+          ))}
         </div>
       </div>
 
