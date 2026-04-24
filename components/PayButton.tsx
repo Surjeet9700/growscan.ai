@@ -90,7 +90,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
       // 2. Open Razorpay checkout dialog
       const options: RazorpayOptions = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: isDiscounted ? 2900 : 4900,
+        amount: isDiscounted ? 2900 : 29900,
         currency: "INR",
         name: "GlowScan",
         description: "Full Skin Analysis Report",
@@ -200,7 +200,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
               ? <Sparkles className="w-4 h-4 shrink-0" />
               : <Lock className="w-4 h-4 shrink-0" />
             }
-            <span>{label || (isDiscounted ? "Unlock Full Report — ₹29" : "Unlock Full Report — ₹49")}</span>
+            <span>{label || (isDiscounted ? "Unlock Full Report — ₹29" : "Subscribe Pro — ₹299/mo")}</span>
           </>
         )}
       </button>

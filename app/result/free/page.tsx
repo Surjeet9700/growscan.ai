@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PayButton } from "@/components/PayButton";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -131,14 +132,24 @@ export default function FreeResultPage() {
 
   useEffect(() => {
     const raw = localStorage.getItem("glowscan_free");
-    if (!raw) { router.push("/scan"); return; }
+    if (!raw) { 
+      toast.error("Session Expired", { description: "Please take a new scan to see your results." });
+      router.push("/scan"); 
+      return; 
+    }
     try {
-      setResult(JSON.parse(raw));
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.skin_type) {
+        throw new Error("Invalid or incomplete data");
+      }
+      setResult(parsed);
       // Support both key naming variants
       const img = localStorage.getItem("glowscan_image") ?? localStorage.getItem("glowscan_scan_image");
       if (img) setScanImage(img);
     } catch {
+      toast.error("Session Error", { description: "Your scan data could not be read. Please try again." });
       router.push("/scan");
+      return;
     }
     setLoading(false);
   }, [router]);
