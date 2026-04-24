@@ -18,15 +18,20 @@ export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     // Check if the user is on iOS to show a manual install instruction if desired
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroidDevice = /android/.test(userAgent);
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
     
     if (isIosDevice && !isStandalone) {
       setIsIOS(true);
+    }
+    if (isAndroidDevice && !isStandalone) {
+      setIsAndroid(true);
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
