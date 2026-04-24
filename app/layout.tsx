@@ -8,6 +8,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { BottomNav } from "@/components/BottomNav";
 import { WelcomeScreen } from "@/components/ui/branding/WelcomeScreen";
 import { StateSync } from "@/components/StateSync";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -94,6 +95,7 @@ export default async function RootLayout({
           className={`${poppins.variable} font-[var(--font-poppins)] selection:bg-[#A377D2]/20`}
         >
           <WelcomeScreen />
+          <InstallPrompt />
           {/* Background sync: hydrates localStorage from DB for cross-device persistence */}
           <StateSync />
           <div className="flex flex-col min-h-[100dvh] w-full max-w-[480px] mx-auto relative bg-[#FAFAFA] overflow-x-hidden">

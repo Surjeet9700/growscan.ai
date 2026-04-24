@@ -120,24 +120,21 @@ export default function ScanPage() {
       localStorage.setItem("glowscan_image", base64String);
       localStorage.setItem("glowscan_free", JSON.stringify({ ...data, timestamp: Date.now() }));
 
-      try {
-        await fetch("/api/history", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "free",
-            result: {
-              glow_score: data.glow_score,
-              skin_type: data.skin_type,
-              top_concern: data.top_concern,
-              face_zones: data.face_zones,
-              preview_insight: data.preview_insight,
-            },
-          }),
-        });
-      } catch (dbErr) {
-        console.error("DB Save failed:", dbErr);
-      }
+      // Fire-and-forget the history save to prevent blocking the UI
+      fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "free",
+          result: {
+            glow_score: data.glow_score,
+            skin_type: data.skin_type,
+            top_concern: data.top_concern,
+            face_zones: data.face_zones,
+            preview_insight: data.preview_insight,
+          },
+        }),
+      }).catch(dbErr => console.error("DB Save failed:", dbErr));
 
       try {
         const prev = JSON.parse(localStorage.getItem("glowscan_history") ?? "[]");

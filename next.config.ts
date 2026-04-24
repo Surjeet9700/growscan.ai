@@ -3,6 +3,16 @@ import withPWAInit from "@ducanh2912/next-pwa";
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
+  workboxOptions: {
+    disableDevLogs: true,
+    exclude: [
+      /middleware-manifest\.json$/,
+      /_buildManifest\.js$/,
+      /_ssgManifest\.js$/,
+      /\.rsc$/,
+      /\?_rsc=/,
+    ]
+  }
 });
 
 const nextConfig = {
