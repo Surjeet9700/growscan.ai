@@ -19,6 +19,7 @@ export function InstallPrompt() {
   const [isDismissed, setIsDismissed] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Check if the user is on iOS to show a manual install instruction if desired
@@ -26,6 +27,9 @@ export function InstallPrompt() {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     const isAndroidDevice = /android/.test(userAgent);
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
+    const isTouchViewport = window.matchMedia("(max-width: 768px)").matches;
+
+    setIsMobile(isTouchViewport || isIosDevice || isAndroidDevice);
     
     if (isIosDevice && !isStandalone) {
       setIsIOS(true);
@@ -71,7 +75,7 @@ export function InstallPrompt() {
     }
   };
 
-  const showPrompt = (deferredPrompt !== null || isIOS || isAndroid) && !isDismissed;
+  const showPrompt = isMobile && (deferredPrompt !== null || isIOS || isAndroid) && !isDismissed;
 
   const getInstructions = () => {
     if (isIOS) return "Tap Share > Add to Home Screen";
@@ -83,11 +87,11 @@ export function InstallPrompt() {
     <AnimatePresence>
       {showPrompt && (
         <motion.div
-          initial={{ y: -100, opacity: 0 }}
+          initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -100, opacity: 0 }}
+          exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed top-0 left-0 right-0 z-[100] p-4 flex justify-center pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 z-[100] p-4 flex justify-center pointer-events-none"
         >
           <div className="bg-white rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-4 flex items-center justify-between gap-4 w-full max-w-[440px] pointer-events-auto border border-black/5">
             <div className="flex items-center gap-3">

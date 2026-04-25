@@ -5,8 +5,9 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, ShieldCheck, ArrowLeft, ChevronRight, Info } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, ChevronRight, Info, Download, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { triggerHaptic } from "@/lib/haptics";
 
 // CRITICAL: SSR: false prevents hydration crash on mobile
 const CameraCapture = dynamic(
@@ -49,6 +50,7 @@ export default function ScanPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [stage, setStage] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const router = useRouter();
 
   // ── PRE-LOAD MODELS ──────────────────────────────────────────────────────
@@ -64,6 +66,10 @@ export default function ScanPage() {
       } catch (e) {}
     }
     setIsLoaded(true);
+    setIsStandalone(
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    );
 
     import("@/lib/faceDetector").then(({ preloadFaceDetector }) => {
       preloadFaceDetector().then(() => setDetectorReady(true));
@@ -81,6 +87,7 @@ export default function ScanPage() {
   };
 
   const handleCapture = async (base64String: string) => {
+    triggerHaptic("medium");
     setAnalyzing(true);
     setStage(0);
     const intervalId = cycleStages();
@@ -99,11 +106,17 @@ export default function ScanPage() {
 
       if (!bespokeZones) throw new Error("LOW_SIGNAL_QUALITY");
 
-      const analysisResult = await fetch("/api/analyse/free", {
+      const analysisResponse = await fetch("/api/analyse/free", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: base64String, context: qData }),
-      }).then(res => res.json());
+      });
+
+      const analysisResult = await analysisResponse.json();
+
+      if (!analysisResponse.ok) {
+        throw new Error(analysisResult.error || "Could not save scan result.");
+      }
 
       if (analysisResult.error) throw new Error(analysisResult.error);
 
@@ -117,38 +130,7 @@ export default function ScanPage() {
       }
 
       clearInterval(intervalId);
-      localStorage.setItem("glowscan_image", base64String);
-      localStorage.setItem("glowscan_free", JSON.stringify({ ...data, timestamp: Date.now() }));
-
-      // Fire-and-forget the history save to prevent blocking the UI
-      fetch("/api/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "free",
-          result: {
-            glow_score: data.glow_score,
-            skin_type: data.skin_type,
-            top_concern: data.top_concern,
-            face_zones: data.face_zones,
-            preview_insight: data.preview_insight,
-          },
-        }),
-      }).catch(dbErr => console.error("DB Save failed:", dbErr));
-
-      try {
-        const prev = JSON.parse(localStorage.getItem("glowscan_history") ?? "[]");
-        const updated = [{
-          id: Date.now().toString(),
-          timestamp: Date.now(),
-          glow_score: data.glow_score,
-          skin_type: data.skin_type,
-          top_concern: data.top_concern,
-          preview_insight: data.preview_insight,
-        }, ...prev].slice(0, 20);
-        localStorage.setItem("glowscan_history", JSON.stringify(updated));
-      } catch {}
-
+      triggerHaptic("success");
       setTimeout(() => router.push("/result/free"), 500);
 
     } catch (error: any) {
@@ -163,7 +145,7 @@ export default function ScanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] font-[var(--font-poppins)] text-[#1A1A1A]">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#F4ECFF_0%,#FAFAFA_38%,#FAFAFA_100%)] font-[var(--font-poppins)] text-[#1A1A1A]">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <div className="px-5 pt-14 pb-3 flex items-center justify-between">
@@ -192,6 +174,22 @@ export default function ScanPage() {
           <div className="w-10" />
         )}
       </div>
+
+      {!isStandalone && !analyzing && (
+        <div className="px-5 mt-2">
+          <div className="flex items-start gap-3 rounded-[18px] border border-[#EBDDFA] bg-white/90 px-4 py-3 shadow-[0_4px_18px_rgba(163,119,210,0.08)]">
+            <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#F3EEFB]">
+              <Download className="h-4 w-4 text-[#A377D2]" />
+            </div>
+            <div>
+              <p className="text-[12px] font-bold text-[#1A1A1A]">Best camera stability comes in app mode</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-[#7A7485]">
+                Install GlowScan for a cleaner full-screen scan flow and less browser chrome around the camera.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── QUESTIONNAIRE / CAMERA ─────────────────────────────────────────── */}
       <div className="px-5 mt-2 relative">
@@ -227,15 +225,15 @@ export default function ScanPage() {
               {qStep === 0 && (
                 <div>
                   <h2 className="text-[24px] font-black text-[#1A1A1A] leading-tight mb-2">
-                    What are your<br />current skin concerns?
+                    Your age<br />range?
                   </h2>
-                  <p className="text-[13px] text-[#9A9A9A] mb-6">Select the one that fits most.</p>
+                  <p className="text-[13px] text-[#9A9A9A] mb-6">Used to calibrate how the scan interprets oil balance and visible ageing markers.</p>
                   <div className="space-y-3">
                     {["Under 20", "20–35", "35–50", "Over 50"].map((opt) => (
                       <motion.button
                         key={opt}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => { setQData({ ...qData, age: opt }); setQStep(1); }}
+                        onClick={() => { triggerHaptic("light"); setQData({ ...qData, age: opt }); setQStep(1); }}
                         className="w-full bg-white rounded-[20px] px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)] flex items-center justify-between text-[14px] font-semibold text-[#1A1A1A] active:bg-[#F3EEFB] border border-transparent active:border-[#A377D2]/20 transition-all"
                       >
                         {opt}
@@ -260,7 +258,7 @@ export default function ScanPage() {
                       <motion.button
                         key={opt}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => { setQData({ ...qData, concern: opt }); setQStep(2); }}
+                        onClick={() => { triggerHaptic("light"); setQData({ ...qData, concern: opt }); setQStep(2); }}
                         className="w-full bg-white rounded-[20px] px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)] flex items-center justify-between text-[14px] font-semibold text-[#1A1A1A] active:bg-[#F3EEFB] border border-transparent active:border-[#A377D2]/20 transition-all"
                       >
                         {opt}
@@ -286,6 +284,7 @@ export default function ScanPage() {
                         key={opt}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => {
+                          triggerHaptic("light");
                           const newData = { ...qData, habits: opt };
                           setQData(newData);
                           localStorage.setItem("glowscan_qdata", JSON.stringify(newData));
@@ -370,6 +369,15 @@ export default function ScanPage() {
           transition={{ delay: 0.3 }}
           className="px-5 mt-6 space-y-3"
         >
+          <div className="rounded-[20px] bg-[linear-gradient(135deg,#1E1828_0%,#47355C_55%,#A377D2_100%)] p-4 text-white shadow-[0_14px_30px_rgba(89,55,125,0.22)]">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-white/90" />
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/80">Scan Standard</p>
+            </div>
+            <p className="text-[13px] font-semibold leading-relaxed text-white/88">
+              Neutral face, front camera at eye level, and soft daylight gives the cleanest read for pigmentation, texture, and dehydration.
+            </p>
+          </div>
           <div className="flex items-start gap-3 bg-white rounded-[16px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <Info className="w-4 h-4 text-[#9A9A9A] shrink-0 mt-0.5" strokeWidth={1.75} />
             <p className="text-[12px] text-[#9A9A9A] leading-relaxed">

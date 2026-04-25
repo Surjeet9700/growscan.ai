@@ -1,7 +1,6 @@
 // app/api/user/sync/route.ts
-// Cross-device state sync — called on app mount by <StateSync />.
-// Returns the user's latest scan results and premium status from MongoDB
-// so the client can hydrate localStorage on a new device.
+// Returns the user's latest scan results and premium status from MongoDB.
+// This is the authenticated source of truth for result pages and summary UI.
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/mongodb";
@@ -35,23 +34,33 @@ export async function GET() {
 
     const isPremium = !!latestPayment;
 
+    const freeResult = latestFreeScan?.result as Record<string, unknown> | undefined;
+    const fullResult = latestFullScan?.result as Record<string, unknown> | undefined;
+
     return NextResponse.json({
       isPremium,
-      // Full report: reshape to match what /result/full/page.tsx expects in localStorage
       fullReport: latestFullScan
         ? {
-            report: latestFullScan.result,
+            report: fullResult,
             timestamp: new Date((latestFullScan as any).createdAt).getTime(),
+            paymentId: typeof fullResult?.payment_id === "string" ? fullResult.payment_id : null,
+            scan_image:
+              typeof fullResult?.scan_image === "string"
+                ? fullResult.scan_image
+                : typeof freeResult?.scan_image === "string"
+                ? freeResult.scan_image
+                : null,
+            scan_context: (fullResult?.scan_context as Record<string, unknown> | null) ?? null,
           }
         : null,
-      // Free scan: reshape to match what /result/free/page.tsx expects in localStorage
       freeScan: latestFreeScan
         ? {
-            ...(latestFreeScan.result as Record<string, unknown>),
+            ...freeResult,
             timestamp: new Date((latestFreeScan as any).createdAt).getTime(),
+            scan_image: typeof freeResult?.scan_image === "string" ? freeResult.scan_image : null,
+            scan_context: (freeResult?.scan_context as Record<string, unknown> | null) ?? null,
           }
         : null,
-      // Payment info for the profile billing section
       latestPayment: latestPayment
         ? {
             paymentId: (latestPayment as any).paymentId,
@@ -64,7 +73,6 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("[Sync] Error:", error.message);
-    // Always fail-open — the client can still work from localStorage
     return NextResponse.json(
       { error: "Sync unavailable", isPremium: false, fullReport: null, freeScan: null },
       { status: 503 }

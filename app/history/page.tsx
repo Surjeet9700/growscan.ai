@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Camera, ChevronRight, TrendingUp, TrendingDown, ShoppingBag, BarChart3, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Camera, ChevronRight, TrendingUp, TrendingDown, ShoppingBag, BarChart3, Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
+import { FEATURES } from "@/lib/features";
 
 interface HistoryEntry {
   id: string;
@@ -436,32 +437,50 @@ export default function HistoryPage() {
         </>
       )}
 
-      {/* ── SUGGESTED PRODUCTS ── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="px-5 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[15px] font-black text-[#1A1A1A]">Suggested products</p>
-          <Link href="/shop">
-            <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
-          </Link>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {SUGGEST_PRODUCTS.map((p, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.28 + i * 0.07 }}
-              className="flex-shrink-0 w-32 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
-            >
-              <div className="w-full h-24 bg-[#F3EEFB] rounded-[14px] mb-2 flex items-center justify-center">
-                <ShoppingBag className="w-7 h-7 text-[#A377D2]/40" />
+      {FEATURES.commerce ? (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="px-5 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[15px] font-black text-[#1A1A1A]">Suggested products</p>
+            <Link href="/shop">
+              <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {SUGGEST_PRODUCTS.map((p, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.28 + i * 0.07 }}
+                className="flex-shrink-0 w-32 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
+              >
+                <div className="w-full h-24 bg-[#F3EEFB] rounded-[14px] mb-2 flex items-center justify-center">
+                  <ShoppingBag className="w-7 h-7 text-[#A377D2]/40" />
+                </div>
+                <p className="text-[10px] text-[#9A9A9A]">{p.brand}</p>
+                <p className="text-[12px] font-bold text-[#1A1A1A] leading-tight">{p.name}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="px-5 mb-5">
+          <div className="bg-[linear-gradient(145deg,#FFFFFF_0%,#FBF7FF_100%)] rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)] border border-[#F1E9FB]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-[14px] bg-[#F3EEFB] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-[#A377D2]" />
               </div>
-              <p className="text-[10px] text-[#9A9A9A]">{p.brand}</p>
-              <p className="text-[12px] font-bold text-[#1A1A1A] leading-tight">{p.name}</p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+              <div>
+                <p className="text-[15px] font-black text-[#1A1A1A]">Progress journal</p>
+                <p className="text-[11px] text-[#9A9A9A]">Public launch keeps the focus on scans and consistency.</p>
+              </div>
+            </div>
+            <p className="text-[13px] leading-relaxed text-[#5D5766]">
+              Use this screen as the habit layer: repeat scans weekly, mark daily routine completion, and watch the monthly glow trend stabilize before adding shopping.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
     </div>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { FEATURES } from "@/lib/features";
 
 // ── SVG icons matching the Behance design ────────────────────────────────────
 const HomeIcon = ({ active }: { active: boolean }) => (
@@ -90,7 +91,7 @@ const ProfileIcon = ({ active }: { active: boolean }) => (
   </svg>
 );
 
-const NAV_ITEMS: Array<{
+const BASE_NAV_ITEMS: Array<{
   href: string;
   label: string;
   Icon: ({ active }: { active: boolean }) => React.ReactElement;
@@ -110,6 +111,10 @@ export function BottomNav() {
   const isHidden = HIDDEN_ROUTES.some((r) => pathname.startsWith(r));
   if (isHidden) return null;
 
+  const navItems = BASE_NAV_ITEMS.filter((item) =>
+    FEATURES.commerce ? true : item.href !== "/shop"
+  );
+
   return (
     <AnimatePresence>
       <motion.nav
@@ -125,7 +130,7 @@ export function BottomNav() {
           className="mx-4 mb-4 flex items-center justify-around bg-white/90 backdrop-blur-xl rounded-[28px] px-2 py-3 shadow-[0_-1px_0_rgba(0,0,0,0.04),0_8px_30px_rgba(0,0,0,0.10)]"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-          {NAV_ITEMS.map(({ href, label, Icon, isScan }) => {
+          {navItems.map(({ href, label, Icon, isScan }) => {
             const active =
               pathname === href ||
               (href !== "/" && href !== "/shop" && pathname.startsWith(href));

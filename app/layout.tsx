@@ -7,7 +7,6 @@ import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { BottomNav } from "@/components/BottomNav";
 import { WelcomeScreen } from "@/components/ui/branding/WelcomeScreen";
-import { StateSync } from "@/components/StateSync";
 import { InstallPrompt } from "@/components/InstallPrompt";
 
 const poppins = Poppins({
@@ -39,6 +38,11 @@ export const metadata: Metadata = {
     "Skin Condition Analysis",
   ],
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GlowScan",
+  },
   openGraph: {
     title: "GlowScan — AI Skin Analyser",
     description: "Advanced AI face scan for clinical-grade skin analysis.",
@@ -96,8 +100,6 @@ export default async function RootLayout({
         >
           <WelcomeScreen />
           <InstallPrompt />
-          {/* Background sync: hydrates localStorage from DB for cross-device persistence */}
-          <StateSync />
           <div className="flex flex-col min-h-[100dvh] w-full max-w-[480px] mx-auto relative bg-[#FAFAFA] overflow-x-hidden">
             <main className="flex-1 flex flex-col relative">{children}</main>
             <BottomNav />

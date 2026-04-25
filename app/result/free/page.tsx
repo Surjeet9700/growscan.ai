@@ -14,9 +14,11 @@ import {
   Sparkles,
   Lock,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 import type { FreeAnalysisResult } from "@/lib/types";
-import { FaceZoneOverlay, ZoneLegend } from "@/components/FaceZoneOverlay";
+import { fetchUserState } from "@/lib/user-state";
+import { FEATURES } from "@/lib/features";
 
 // ── Amazon product card type ──────────────────────────────────────────────────
 interface AmazonCard {
@@ -100,59 +102,57 @@ function MetricTile({
   );
 }
 
-// ── Product recommendation card ───────────────────────────────────────────────
-function ProductRec({
-  name, brand, price, delay,
-}: {
-  name: string; brand: string; price: string; delay: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay, ease: [0.16, 1, 0.3, 1] }}
-      className="flex-shrink-0 w-36 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
-    >
-      <div className="w-full h-28 bg-[#F3EEFB] rounded-[14px] mb-3 flex items-center justify-center">
-        <ShoppingBag className="w-7 h-7 text-[#A377D2]/30" />
-      </div>
-      <p className="text-[10px] text-[#9A9A9A]">{brand}</p>
-      <p className="text-[13px] font-bold text-[#1A1A1A] leading-tight line-clamp-1">{name}</p>
-      <p className="text-[13px] font-black text-[#A377D2] mt-1">{price}</p>
-    </motion.div>
-  );
-}
-
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function FreeResultPage() {
   const router = useRouter();
   const [result, setResult] = useState<FreeAnalysisResult | null>(null);
   const [scanImage, setScanImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [amazonProducts, setAmazonProducts] = useState<AmazonCard[]>([]);
 
   useEffect(() => {
-    const raw = localStorage.getItem("glowscan_free");
-    if (!raw) { 
-      toast.error("Session Expired", { description: "Please take a new scan to see your results." });
-      router.push("/scan"); 
-      return; 
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object' || !parsed.skin_type) {
-        throw new Error("Invalid or incomplete data");
-      }
-      setResult(parsed);
-      // Support both key naming variants
-      const img = localStorage.getItem("glowscan_image") ?? localStorage.getItem("glowscan_scan_image");
-      if (img) setScanImage(img);
-    } catch {
-      toast.error("Session Error", { description: "Your scan data could not be read. Please try again." });
-      router.push("/scan");
+    const controller = new AbortController();
+
+    fetchUserState(controller.signal)
+      .then((state) => {
+        const freeScan = state?.freeScan;
+        if (!freeScan?.skin_type) {
+          toast.error("No Scan Found", { description: "Please take a scan to see your results." });
+          router.push("/scan");
+          return;
+        }
+
+        setResult(freeScan);
+        if (freeScan.scan_image) setScanImage(freeScan.scan_image);
+      })
+      .catch(() => {
+        toast.error("Result Unavailable", { description: "The latest free scan could not be loaded." });
+        router.push("/scan");
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [router]);
+
+  useEffect(() => {
+    if (!result || !FEATURES.commerce) {
+      setAmazonProducts([]);
       return;
     }
-    setLoading(false);
-  }, [router]);
+
+    const query = `${result.skin_type ?? "combination"} skin serum`;
+
+    fetch(`/api/products?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((data: AmazonCard[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setAmazonProducts(data.slice(0, 3));
+        } else {
+          setAmazonProducts(FALLBACK_PRODUCTS);
+        }
+      })
+      .catch(() => setAmazonProducts(FALLBACK_PRODUCTS));
+  }, [result]);
 
   if (loading || !result) {
     return (
@@ -164,8 +164,6 @@ export default function FreeResultPage() {
 
   const healthPct  = getSkinHealthPct(result.glow_score ?? 6);
   const skinAge    = result.skin_age_estimate ?? 29;
-  const faceZones  = result.face_zones ?? [];
-
   // ── Derived metric scores (0–100, from API or sane defaults) ──────────────
   const METRICS = [
     {
@@ -194,28 +192,6 @@ export default function FreeResultPage() {
     },
   ];
 
-  // ── Amazon / Static product cards ─────────────────────────────────────────
-  const [amazonProducts, setAmazonProducts] = useState<AmazonCard[]>([]);
-
-  useEffect(() => {
-    // Fetch relevant products based on the scan's skin type
-    const query = result
-      ? `${result.skin_type ?? "combination"} skin serum`
-      : "niacinamide serum";
-
-    fetch(`/api/products?q=${encodeURIComponent(query)}`)
-      .then((r) => r.json())
-      .then((data: AmazonCard[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setAmazonProducts(data.slice(0, 3));
-        } else {
-          // Static fallback
-          setAmazonProducts(FALLBACK_PRODUCTS);
-        }
-      })
-      .catch(() => setAmazonProducts(FALLBACK_PRODUCTS));
-  }, [result?.skin_type]);
-
   return (
     <div className="min-h-screen bg-[#FAFAFA] pb-32 font-[var(--font-poppins)]">
 
@@ -241,21 +217,27 @@ export default function FreeResultPage() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-        className="px-5 mb-4 relative"
+        className="px-5 mb-4"
       >
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-md rounded-[28px] mx-5 mb-4 inset-x-0 bottom-0 mt-[1px] shadow-inner">
-           <Lock className="w-8 h-8 text-white drop-shadow-md mb-2" />
-           <p className="text-[14px] font-black text-white drop-shadow-md tracking-wide">Unlock 5-Zone Mapping</p>
-           <p className="text-[10px] font-semibold text-white/90 drop-shadow-md mt-1">Available in Pro Report</p>
-        </div>
-        <div className="opacity-40 pointer-events-none select-none overflow-hidden rounded-[28px]">
+        <div className="relative overflow-hidden rounded-[28px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(21,14,30,0.12)_0%,rgba(21,14,30,0.55)_100%)] backdrop-blur-[2px] shadow-inner">
+             <Lock className="w-8 h-8 text-white drop-shadow-md mb-2" />
+             <p className="text-[14px] font-black text-white drop-shadow-md tracking-wide">Unlock 5-Zone Mapping</p>
+             <p className="text-[10px] font-semibold text-white/90 drop-shadow-md mt-1">Visible in the full report</p>
+          </div>
           {scanImage ? (
-            <img src={scanImage} alt="Scan" className="w-full aspect-[3/4] object-cover" />
+            <img src={scanImage} alt="Scan" className="w-full aspect-[3/4] object-cover opacity-45 pointer-events-none select-none" />
           ) : (
             <div className="w-full h-64 bg-gradient-to-br from-[#F3EEFB] to-[#EDE0FF] flex items-center justify-center">
                <span className="text-[40px]">✨</span>
             </div>
           )}
+        </div>
+        <div className="mt-3 flex items-center gap-2 rounded-[18px] bg-white px-4 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+          <p className="text-[12px] text-[#666666] leading-relaxed">
+            Upgrade to see facial zone callouts, ingredient rationale, and a routine designed for Indian weather conditions.
+          </p>
         </div>
       </motion.div>
 
@@ -405,53 +387,53 @@ export default function FreeResultPage() {
         </div>
       </motion.div>
 
-      {/* ── RECOMMENDED PRODUCTS (Amazon-powered) ────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.32 }}
-        className="mb-5"
-      >
-        <div className="px-5 flex items-center justify-between mb-3">
-          <p className="text-[15px] font-black text-[#1A1A1A]">Best solution products</p>
-          <Link href="/shop">
-            <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
-          </Link>
-        </div>
-        <div className="flex gap-3 px-5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {(amazonProducts.length > 0 ? amazonProducts : FALLBACK_PRODUCTS).map((p, i) => (
-            <motion.div
-              key={p.asin}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.34 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              className="flex-shrink-0 w-36 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
-            >
-              {/* Product image */}
-              <div className="w-full h-28 bg-[#F3EEFB] rounded-[14px] mb-3 flex items-center justify-center overflow-hidden">
-                {p.image ? (
-                  <img src={p.image} alt={p.title} className="w-full h-full object-contain p-2" />
-                ) : (
-                  <ShoppingBag className="w-7 h-7 text-[#A377D2]/30" />
+      {FEATURES.commerce ? (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          className="mb-5"
+        >
+          <div className="px-5 flex items-center justify-between mb-3">
+            <p className="text-[15px] font-black text-[#1A1A1A]">Best solution products</p>
+            <Link href="/shop">
+              <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
+            </Link>
+          </div>
+          <div className="flex gap-3 px-5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {(amazonProducts.length > 0 ? amazonProducts : FALLBACK_PRODUCTS).map((p, i) => (
+              <motion.div
+                key={p.asin}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.34 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                className="flex-shrink-0 w-36 bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
+              >
+                <div className="w-full h-28 bg-[#F3EEFB] rounded-[14px] mb-3 flex items-center justify-center overflow-hidden">
+                  {p.image ? (
+                    <img src={p.image} alt={p.title} className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <ShoppingBag className="w-7 h-7 text-[#A377D2]/30" />
+                  )}
+                </div>
+                <p className="text-[10px] text-[#9A9A9A]">{p.brand}</p>
+                <p className="text-[13px] font-bold text-[#1A1A1A] leading-tight line-clamp-1">{p.title}</p>
+                <p className="text-[13px] font-black text-[#A377D2] mt-1">{p.price ?? "—"}</p>
+                {p.url && (
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex items-center gap-1 text-[10px] font-bold text-[#A377D2]"
+                  >
+                    View <ArrowRight className="w-3 h-3" />
+                  </a>
                 )}
-              </div>
-              <p className="text-[10px] text-[#9A9A9A]">{p.brand}</p>
-              <p className="text-[13px] font-bold text-[#1A1A1A] leading-tight line-clamp-1">{p.title}</p>
-              <p className="text-[13px] font-black text-[#A377D2] mt-1">{p.price ?? "—"}</p>
-              {p.url && (
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 flex items-center gap-1 text-[10px] font-bold text-[#A377D2]"
-                >
-                  View <ArrowRight className="w-3 h-3" />
-                </a>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      ) : null}
 
       {/* ── UPGRADE TO FULL REPORT ──────────────────────────────────────── */}
       <motion.div

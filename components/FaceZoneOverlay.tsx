@@ -166,7 +166,7 @@ function ZoneTooltip({ zone }: { zone: FaceZone }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.95 }}
       transition={{ type: "spring", damping: 20, stiffness: 400 }}
-      className="absolute bottom-3 left-3 right-3 z-20 pointer-events-none"
+      className="absolute bottom-3 left-1/2 z-20 w-[calc(100%-24px)] max-w-[calc(100%-24px)] -translate-x-1/2 pointer-events-none"
     >
       <div
         className="rounded-[16px] px-4 py-3 backdrop-blur-md border"
@@ -233,7 +233,7 @@ export function FaceZoneOverlay({ imageBase64, zones, className = "" }: FaceZone
   };
 
   return (
-    <div className={`relative w-full overflow-hidden rounded-[28px] bg-black ${className}`}>
+    <div className={`relative w-full max-w-full overflow-hidden rounded-[28px] bg-black ${className}`}>
       {/* Face photo */}
       <img
         src={imageBase64}
@@ -248,7 +248,7 @@ export function FaceZoneOverlay({ imageBase64, zones, className = "" }: FaceZone
         <motion.svg
           viewBox="0 0 100 100"
           preserveAspectRatio="xMidYMid meet"
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full overflow-hidden"
           style={{ mixBlendMode: "normal" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

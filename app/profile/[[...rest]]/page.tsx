@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react";
+import { fetchUserState } from "@/lib/user-state";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -85,13 +86,13 @@ export default function ProfilePage() {
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
-    // Check premium via dedicated flag (set by StateSync from DB)
-    // OR via the presence of a full report in localStorage (legacy/local flow)
-    const hasFlag   = localStorage.getItem("glowscan_is_premium") === "true";
-    const hasReport = !!localStorage.getItem("glowscan_report");
-    if (hasFlag || hasReport) {
-      setIsPremium(true);
-    }
+    const controller = new AbortController();
+
+    fetchUserState(controller.signal)
+      .then((state) => setIsPremium(Boolean(state?.isPremium || state?.fullReport)))
+      .catch(() => {});
+
+    return () => controller.abort();
   }, []);
 
   const firstName = user?.firstName ?? "Friend";

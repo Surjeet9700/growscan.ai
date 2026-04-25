@@ -2,8 +2,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Heart, Search, ShoppingBag, Star } from "lucide-react";
+import { ArrowLeft, Heart, Search, ShoppingBag, Star } from "lucide-react";
 import { useState } from "react";
+import { FEATURES } from "@/lib/features";
 
 const CATEGORIES = ["All", "Serum", "Moisturizer", "Sunscreen", "Toner", "Retinol"];
 
@@ -21,6 +22,42 @@ const PRODUCTS = [
 export default function ShopPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [liked, setLiked] = useState<Set<number>>(new Set());
+
+  if (!FEATURES.commerce) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] pb-36 font-[var(--font-poppins)]">
+        <div className="px-5 pt-14 pb-4 flex items-center justify-between">
+          <Link href="/">
+            <div className="w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] flex items-center justify-center">
+              <ArrowLeft className="w-4 h-4 text-[#1A1A1A]" />
+            </div>
+          </Link>
+          <h1 className="text-[17px] font-black text-[#1A1A1A]">Shop</h1>
+          <div className="w-10" />
+        </div>
+
+        <div className="px-5 pt-8">
+          <div className="rounded-[32px] bg-white p-7 shadow-[0_10px_30px_rgba(0,0,0,0.06)] border border-black/[0.04]">
+            <div className="w-14 h-14 rounded-[18px] bg-[#F3EEFB] flex items-center justify-center mb-5">
+              <ShoppingBag className="w-6 h-6 text-[#A377D2]" />
+            </div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#A377D2] mb-2">
+              Launch Mode
+            </p>
+            <h2 className="text-[26px] font-black text-[#1A1A1A] leading-tight mb-3">
+              Product shopping is temporarily hidden.
+            </h2>
+            <p className="text-[14px] text-[#666666] leading-relaxed mb-5">
+              Affiliate APIs are not live yet, so public launch is focused on scan quality, routines, and report conversion.
+            </p>
+            <Link href="/scan" className="btn-purple w-full">
+              Start a Scan
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filtered =
     activeCategory === "All"

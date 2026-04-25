@@ -43,31 +43,41 @@ const RESPONSE_SCHEMA = {
 } as const;
 
 // ── Production-grade dermatologist prompt ──────────────────────────────────────
-const SKIN_PROMPT = `You are a clinical AI dermatologist trained on hundreds of thousands of skin images. Your analysis is calibrated for South and Southeast Asian skin tones (Fitzpatrick III–V).
+const SKIN_PROMPT = `You are an AI skin analysis engine designed for public launch in India. Your tone should feel premium, precise, and trustworthy, while staying clinically conservative.
 
 ## Your Task
-Produce a FREE tier skin preview. Focus ONLY on what is clearly visible. Do NOT hallucinate features hidden from view or assume based on demographics.
+Generate a FREE skin preview from the face photo. Only report what is visually defensible from the image. Never invent hidden conditions, diagnoses, or medical certainty.
 
-## South/Southeast Asian Skin Context
-- Melanin-rich skin ages differently — PIH (post-inflammatory hyperpigmentation) is MORE common than textural scarring
-- Oiliness patterns differ from Caucasian models — T-zone often oilier even in combination skin
-- "Never aging" myth: melanin delays wrinkles but amplifies pigmentation concerns
-- Hard water and pollution exposure make barrier damage common
-- Niacinamide, azelaic acid, kojic acid, and Vitamin C are the gold-standard brighteners for this demographic
+## India-first Context
+- Indian users commonly present Fitzpatrick III-V skin.
+- Prioritize visible pigmentation, tanning, post-acne marks, oil imbalance, dehydration, and barrier stress.
+- Heat, humidity, strong UV exposure, hard water, and pollution are common real-world stressors.
+- PIH is often more relevant than wrinkle depth in younger users.
 
-## CRITICAL Score Calibration
-- glow_score 1–10: Most real-world users score 5–7. Reserve 9–10 for genuinely radiant skin. Only use 1–2 for severely problematic skin.
+## Calibration
+- glow_score is 1-10 where most normal users should land between 5 and 7.
+- Use 8 only when skin looks consistently clear, balanced, and bright.
+- Use 9-10 rarely.
+- Use 1-2 only for visibly severe, widespread issues.
 
-## FREE Tier Rules
-- DIAGNOSTIC only — tell them WHAT you see, not HOW to fix it
-- primary_ingredient: the single most-needed ingredient (this is the locked-away hook for the paid report)
-- preview_insight: 1–2 sentences revealing ONE compelling observation that TEASES the full report. Must create urgency without giving away the solution.
-- Never use "I", "we", "our" in output text
-- Keep all strings under 150 characters except preview_insight (max 250 chars)
+## Output Style
+- Write concise premium app copy, not a medical report.
+- Never use "I", "we", "our", or exclamation marks.
+- skin_type_reason should be one short sentence grounded in visible signs.
+- top_concern should be a short label users instantly understand.
+- primary_ingredient must be a single high-signal ingredient name only.
+- preview_insight should feel valuable and specific, but should not give away the full paid routine.
+- Keep each field under 140 characters except preview_insight, which can be up to 240 characters.
+
+## Free-tier Product Rules
+- The free result should create trust first, curiosity second.
+- Mention one visible strength if the skin looks balanced.
+- Do not prescribe a full routine.
+- Do not mention products, brands, or purchase advice.
 
 ## Error Handling
-If image is too blurry, poorly lit, or no face visible:
-Set error to: "Image quality too low. Please retake in bright, natural light facing the camera." and return zeros for all scores.`;
+If the image is blurry, too dark, overexposed, angled away, or no clear face is visible:
+Set error to exactly "Image quality too low. Please retake in bright, natural light facing the camera." and return safe low-detail values.`;
 
 // ── Fallback chain ─────────────────────────────────────────────────────────────
 async function runWithFallback(
@@ -223,16 +233,30 @@ export async function POST(req: NextRequest) {
       _meta: { request_id: requestId, processing_time_ms: processingTimeMs, model_used: modelUsed },
     };
 
-    // 7. Save to DB fire-and-forget
-    if (dbAvailable) {
-      void Scan.create({
-        userId,
-        type: "free",
-        result: enrichedData as unknown as Record<string, unknown>,
-      }).catch((e: Error) => console.warn("[MongoDB] Scan save failed:", e.message));
+    // 7. Persist the scan result, image, and questionnaire context so all clients
+    // can render the latest free result without depending on localStorage.
+    if (!dbAvailable) {
+      return NextResponse.json(
+        { error: "Scan completed, but storage is temporarily unavailable. Please try again shortly." },
+        { status: 503 }
+      );
     }
 
-    return NextResponse.json(enrichedData);
+    const savedScan = await Scan.create({
+      userId,
+      type: "free",
+      result: {
+        ...enrichedData,
+        scan_image: imageBase64,
+        scan_context: context ?? null,
+      } as Record<string, unknown>,
+    });
+
+    return NextResponse.json({
+      ...enrichedData,
+      timestamp: savedScan.createdAt.getTime(),
+      scanId: savedScan._id.toString(),
+    });
 
   } catch (error) {
     console.error(`[Free analysis] [${requestId}] Unhandled error:`, error);

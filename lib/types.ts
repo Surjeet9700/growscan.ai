@@ -2,6 +2,12 @@
 
 export type FaceZoneSeverity = "none" | "mild" | "moderate" | "severe";
 
+export interface ScanContext {
+  age?: string;
+  concern?: string;
+  habits?: string;
+}
+
 export interface FaceZone {
   zone: "forehead" | "left_cheek" | "right_cheek" | "nose" | "chin";
   issue: string;
@@ -115,10 +121,29 @@ export interface RazorpayHandlerResponse {
 
 export interface StoredFreeResult extends FreeAnalysisResult {
   timestamp: number;
+  scan_image?: string;
+  scan_context?: ScanContext | null;
 }
 
 export interface StoredFullReport {
   report: FullReportResult;
-  paymentId: string;
+  paymentId?: string | null;
   timestamp: number;
+  scan_image?: string | null;
+  scan_context?: ScanContext | null;
+}
+
+export interface LatestPaymentSummary {
+  paymentId: string;
+  amount: number;
+  currency: string;
+  paidAt: string | Date;
+  usedAt?: string | Date | null;
+}
+
+export interface UserSyncState {
+  isPremium: boolean;
+  fullReport: StoredFullReport | null;
+  freeScan: StoredFreeResult | null;
+  latestPayment: LatestPaymentSummary | null;
 }

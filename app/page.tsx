@@ -4,7 +4,9 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Bookmark, ChevronRight, ShoppingBag, Heart } from "lucide-react";
+import { Bell, Bookmark, ChevronRight, ScanSearch, ShoppingBag, Heart, ShieldCheck, Sparkles, SunMedium } from "lucide-react";
+import { fetchUserState } from "@/lib/user-state";
+import { FEATURES } from "@/lib/features";
 
 interface LastScan {
   glow_score: number;
@@ -135,10 +137,21 @@ export default function HomePage() {
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem("glowscan_free");
-    if (raw) {
-      try { setLastScan(JSON.parse(raw)); } catch {}
-    }
+    const controller = new AbortController();
+
+    fetchUserState(controller.signal)
+      .then((state) => {
+        if (!state?.freeScan) return;
+        setLastScan({
+          glow_score: state.freeScan.glow_score,
+          skin_type: state.freeScan.skin_type,
+          top_concern: state.freeScan.top_concern,
+          timestamp: state.freeScan.timestamp,
+        });
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
   }, []);
 
   const firstName = user?.firstName ?? "Friend";
@@ -147,6 +160,7 @@ export default function HomePage() {
   });
 
   const routinePct = lastScan ? 40 : 0;
+  const skinScore = lastScan ? Math.round(lastScan.glow_score * 10) : null;
   const scanAgo = lastScan
     ? (() => {
         const d = Math.floor((Date.now() - lastScan.timestamp) / 86_400_000);
@@ -208,10 +222,40 @@ export default function HomePage() {
         transition={{ delay: 0.05 }}
         className="px-5 mt-1 mb-5"
       >
-        <p className="text-[22px] font-black text-[#1A1A1A] leading-[1.2] tracking-tight">
-          AI Beauty always<br />
-          <span className="text-[#A377D2]">here for your skin</span>
-        </p>
+        <div className="rounded-[32px] bg-[linear-gradient(145deg,#1B1722_0%,#2C233A_42%,#A377D2_100%)] p-6 text-white shadow-[0_18px_50px_rgba(72,41,109,0.26)]">
+          <div className="flex items-center justify-between mb-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/85">
+              <Sparkles className="w-3 h-3" />
+              India Skin AI
+            </span>
+            <span className="text-[11px] font-semibold text-white/70">30-sec scan</span>
+          </div>
+          <p className="text-[24px] font-black leading-[1.15] tracking-tight">
+            Premium skin scanning,
+            <br />
+            built for Indian users.
+          </p>
+          <p className="mt-3 max-w-[280px] text-[13px] leading-relaxed text-white/72">
+            Read glow score, visible concern signals, and climate-aware routine guidance without clinic-style friction.
+          </p>
+          <div className="mt-6 grid grid-cols-3 gap-2">
+            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
+              <ShieldCheck className="mb-2 h-4 w-4 text-white/90" />
+              <p className="text-[11px] font-bold">Private</p>
+              <p className="text-[10px] text-white/60">Account-linked results</p>
+            </div>
+            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
+              <SunMedium className="mb-2 h-4 w-4 text-white/90" />
+              <p className="text-[11px] font-bold">India-first</p>
+              <p className="text-[10px] text-white/60">UV, humidity, PIH aware</p>
+            </div>
+            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
+              <ScanSearch className="mb-2 h-4 w-4 text-white/90" />
+              <p className="text-[11px] font-bold">Fast</p>
+              <p className="text-[10px] text-white/60">One scan, instant readout</p>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* ── DAILY ROUTINE + SCAN RESULT CARD ROW ─────────────────────── */}
@@ -270,7 +314,7 @@ export default function HomePage() {
                     />
                   </div>
                   <p className="text-[20px] font-black text-[#1A1A1A] mt-2">
-                    {lastScan.glow_score * 10}
+                    {skinScore}
                     <span className="text-[12px] text-[#9A9A9A] font-medium">%</span>
                   </p>
                 </div>
@@ -293,27 +337,53 @@ export default function HomePage() {
         </Link>
       </motion.div>
 
-      {/* ── BEST SOLUTION PRODUCTS ───────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="mb-5"
-      >
-        <div className="px-5 flex items-center justify-between mb-3">
-          <p className="text-[16px] font-black text-[#1A1A1A]">Best solution product</p>
-          <Link href="/shop">
-            <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
-          </Link>
-        </div>
-        {/* Horizontal scroll */}
-        <div className="flex gap-3 px-5 overflow-x-auto pb-1 scrollbar-none"
-          style={{ scrollbarWidth: "none" }}>
-          {PRODUCTS.map((p, i) => (
-            <ProductCard key={i} {...p} delay={0.18 + i * 0.06} />
-          ))}
-        </div>
-      </motion.div>
+      {FEATURES.commerce ? (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-5"
+        >
+          <div className="px-5 flex items-center justify-between mb-3">
+            <p className="text-[16px] font-black text-[#1A1A1A]">Best solution product</p>
+            <Link href="/shop">
+              <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
+            </Link>
+          </div>
+          <div className="flex gap-3 px-5 overflow-x-auto pb-1 scrollbar-none"
+            style={{ scrollbarWidth: "none" }}>
+            {PRODUCTS.map((p, i) => (
+              <ProductCard key={i} {...p} delay={0.18 + i * 0.06} />
+            ))}
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="px-5 mb-5"
+        >
+          <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[16px] font-black text-[#1A1A1A]">Why GlowScan feels premium</p>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#A377D2]">Launch Focus</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                "Mobile-first flows that feel native even before install.",
+                "AI outputs tuned for Indian climate, pigmentation, and barrier concerns.",
+                "Report-first experience before commerce, so trust is built before monetization."
+              ].map((item, index) => (
+                <div key={index} className="flex items-start gap-3 rounded-[18px] bg-[#FAF7FE] px-4 py-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-[#A377D2]" />
+                  <p className="text-[13px] font-medium text-[#4B4457] leading-relaxed">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── TODAY'S SELF-CARE WATCHLIST ──────────────────────────────── */}
       <motion.div

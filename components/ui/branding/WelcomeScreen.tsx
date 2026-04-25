@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FEATURES } from "@/lib/features";
 
 // Lotus Leaf SVG — matches the Behance splash screen exactly
 function LotusIcon({ size = 80 }: { size?: number }) {
@@ -77,11 +78,19 @@ export function WelcomeScreen() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+    if (FEATURES.standaloneSplashOnly && !isStandalone) {
+      return;
+    }
+
     const hasSeenWelcome = sessionStorage.getItem("glowscan_welcome_seen");
     if (!hasSeenWelcome) {
       setIsVisible(true);
       sessionStorage.setItem("glowscan_welcome_seen", "true");
-      const timer = setTimeout(() => setIsVisible(false), 2800);
+      const timer = setTimeout(() => setIsVisible(false), 1800);
       return () => clearTimeout(timer);
     }
   }, []);

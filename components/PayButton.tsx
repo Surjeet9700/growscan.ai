@@ -15,6 +15,7 @@ import { useAuth } from "@clerk/nextjs";
 import type { RazorpayHandlerResponse } from "@/lib/types";
 import { ProcessingOverlay } from "./ProcessingOverlay";
 import { cn } from "@/lib/utils";
+import { fetchUserState } from "@/lib/user-state";
 
 // Minimal Razorpay type — enough to avoid window.any casts
 interface RazorpayOptions {
@@ -81,10 +82,12 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
       if (!orderRes.ok) throw new Error("Could not initialize payment");
       const { orderId } = await orderRes.json();
 
-      // Ensure the image exists in localStorage
-      const imageBase64 = localStorage.getItem("glowscan_image");
+      const userState = await fetchUserState();
+      const imageBase64 = userState?.freeScan?.scan_image;
+      const context = userState?.freeScan?.scan_context ?? null;
+
       if (!imageBase64) {
-        throw new Error("Session expired. Please scan your face again.");
+        throw new Error("No saved scan found. Please run a free scan again before unlocking the full report.");
       }
 
       // 2. Open Razorpay checkout dialog
@@ -111,10 +114,6 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
             const verification = await verifyRes.json();
             if (!verification.success) throw new Error(verification.error || "Payment verification failed");
 
-            // ── Patient Context Handle ───────────────────────────────────────
-            const contextRaw = localStorage.getItem("glowscan_context");
-            const context = contextRaw ? JSON.parse(contextRaw) : null;
-
             // 4. Generate full report (The backend verifies the record created in step 2)
             const fullRes = await fetch("/api/analyse/full", {
               method: "POST",
@@ -131,16 +130,7 @@ export function PayButton({ className, label, isDiscounted = false }: { classNam
             const reportData = await fullRes.json();
             if (reportData.error) throw new Error(reportData.error);
 
-            // 5. Store and navigate
-            localStorage.setItem(
-              "glowscan_report",
-              JSON.stringify({
-                report: reportData,
-                paymentId: response.razorpay_payment_id,
-                timestamp: Date.now(),
-              })
-            );
-
+            // 5. Navigate once the report is safely stored in MongoDB
             router.push("/result/full");
           } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "An unknown error occurred";

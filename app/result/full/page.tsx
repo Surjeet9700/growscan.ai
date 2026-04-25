@@ -16,6 +16,8 @@ import { SkinHealthBar } from "@/components/ui/diagnostic/SkinHealthBar";
 import { GlassResultCard } from "@/components/ui/diagnostic/GlassResultCard";
 import { SkinProgressChart } from "@/components/ui/diagnostic/SkinProgressChart";
 import { GlowLogo } from "@/components/ui/branding/GlowLogo";
+import { fetchUserState } from "@/lib/user-state";
+import { FEATURES } from "@/lib/features";
 
 // ── Amazon Product Card (fetches from /api/products) ─────────────────────────
 interface AmazonProduct {
@@ -176,6 +178,21 @@ const SAMPLE_REPORT = {
   }
 } as const;
 
+function formatRoutineStep(step: unknown) {
+  if (typeof step === "string") return step;
+  if (step && typeof step === "object") {
+    const item = step as { step?: string; product?: string; purpose?: string };
+    return [item.step, item.product, item.purpose].filter(Boolean).join(" · ");
+  }
+  return "";
+}
+
+function formatSkinAge(value: unknown) {
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value.replace(/\s*years?$/i, "");
+  return "N/A";
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function FullResultContent() {
@@ -195,17 +212,22 @@ function FullResultContent() {
       return;
     }
 
-    const raw = localStorage.getItem("glowscan_report");
-    const img = localStorage.getItem("glowscan_image");
-    if (!raw) { router.push("/"); return; }
-    try {
-      const parsed = JSON.parse(raw);
-      setData(parsed.report);
-      setImage(img);
-      setScanTimestamp(parsed.timestamp ?? Date.now());
-    } catch {
-      router.push("/");
-    }
+    const controller = new AbortController();
+
+    fetchUserState(controller.signal)
+      .then((state) => {
+        if (!state?.fullReport?.report) {
+          router.push("/");
+          return;
+        }
+
+        setData(state.fullReport.report);
+        setImage(state.fullReport.scan_image ?? null);
+        setScanTimestamp(state.fullReport.timestamp ?? Date.now());
+      })
+      .catch(() => router.push("/"));
+
+    return () => controller.abort();
   }, [router, isSample]);
 
   if (!data) return (
@@ -278,7 +300,7 @@ function FullResultContent() {
          {/* Floating Age Pill */}
          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/50 shadow-sm">
             <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Skin Age: </span>
-            <span className="text-[10px] font-black text-[#2F2F30]">{data.skin_age_estimate.replace(" years", "")}</span>
+            <span className="text-[10px] font-black text-[#2F2F30]">{formatSkinAge(data.skin_age_estimate)}</span>
          </div>
       </div>
 
@@ -396,7 +418,7 @@ function FullResultContent() {
                 viewport={{ once: true }}
                 className="space-y-3"
               >
-                {data.morning_routine_order?.map((step: string, i: number) => (
+                {data.morning_routine_order?.map((step: unknown, i: number) => (
                   <motion.div 
                     key={`am-${i}`}
                     variants={{
@@ -406,7 +428,7 @@ function FullResultContent() {
                     className="flex gap-4 items-start group"
                   >
                     <span className="text-[10px] font-black text-black/15 pt-1">0{i + 1}</span>
-                    <p className="text-[13px] font-bold text-ink leading-snug group-hover:text-[#A377D2] transition-colors">{step}</p>
+                    <p className="text-[13px] font-bold text-ink leading-snug group-hover:text-[#A377D2] transition-colors">{formatRoutineStep(step)}</p>
                   </motion.div>
                 ))}
               </motion.div>
@@ -447,7 +469,7 @@ function FullResultContent() {
                 viewport={{ once: true }}
                 className="space-y-3"
               >
-                {data.night_routine_order?.map((step: string, i: number) => (
+                {data.night_routine_order?.map((step: unknown, i: number) => (
                   <motion.div 
                     key={`pm-${i}`}
                     variants={{
@@ -458,7 +480,7 @@ function FullResultContent() {
                     className="flex gap-4 items-start group"
                   >
                     <span className="text-[10px] font-black text-white/10 pt-1">0{i + 1}</span>
-                    <p className="text-[13px] font-bold text-white/80 leading-snug group-hover:text-indigo-200 transition-colors">{step}</p>
+                    <p className="text-[13px] font-bold text-white/80 leading-snug group-hover:text-indigo-200 transition-colors">{formatRoutineStep(step)}</p>
                   </motion.div>
                 ))}
               </motion.div>
@@ -488,19 +510,30 @@ function FullResultContent() {
         </div>
       </div>
 
-      {/* ── SHOP YOUR ROUTINE — Amazon-powered ── */}
-      <div className="px-5 mt-14">
-        <div className="flex items-center justify-between mb-6 px-1">
-          <h4 className="text-xl font-bold text-[#2F2F30]">Shop Your Routine</h4>
-          <span className="text-[9px] font-bold text-black/20 uppercase tracking-[0.2em]">Amazon India</span>
+      {FEATURES.commerce ? (
+        <div className="px-5 mt-14">
+          <div className="flex items-center justify-between mb-6 px-1">
+            <h4 className="text-xl font-bold text-[#2F2F30]">Shop Your Routine</h4>
+            <span className="text-[9px] font-bold text-black/20 uppercase tracking-[0.2em]">Amazon India</span>
+          </div>
+          
+          <div className="space-y-5">
+            {data.priority_ingredients?.map((item: any, i: number) => (
+              <AmazonProductCard key={`prod-${i}`} ingredient={item.ingredient} />
+            ))}
+          </div>
         </div>
-        
-        <div className="space-y-5">
-          {data.priority_ingredients?.map((item: any, i: number) => (
-            <AmazonProductCard key={`prod-${i}`} ingredient={item.ingredient} />
-          ))}
+      ) : (
+        <div className="px-5 mt-14">
+          <div className="rounded-[36px] bg-white p-7 border border-[#F1E9FB] shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#A377D2] mb-2">Launch Note</p>
+            <h4 className="text-[22px] font-black text-[#2F2F30] leading-tight mb-3">This release is report-first, not commerce-first.</h4>
+            <p className="text-[14px] text-[#5D5766] leading-relaxed">
+              Ingredient recommendations stay in the report so the product experience can launch later with a stronger affiliate and inventory foundation.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── LIFESTYLE TIPS ── */}
       <div className="px-5 mt-14">
