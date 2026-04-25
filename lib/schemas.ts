@@ -3,10 +3,31 @@ import { z } from "zod";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 
+const ClimateSignalsSchema = z.object({
+  uv_index: z.number().nullable(),
+  humidity: z.number().nullable(),
+  pm25: z.number().nullable(),
+  us_aqi: z.number().nullable(),
+  temperature_c: z.number().nullable(),
+});
+
+const ClimateContextSchema = z.object({
+  score: z.number(),
+  level: z.enum(["low", "moderate", "high", "extreme"]),
+  summary: z.string(),
+  drivers: z.array(z.string()),
+  watchouts: z.array(z.string()),
+  actions: z.array(z.string()),
+  captured_at: z.string(),
+  source: z.enum(["live", "scan-time"]),
+  signals: ClimateSignalsSchema,
+});
+
 export const ScanContextSchema = z.object({
   age: z.string().optional(),
   concern: z.string().optional(),
   habits: z.string().optional(),
+  climate: ClimateContextSchema.nullable().optional(),
 });
 
 /** Base64 image: must start with data:image, and be under 5MB (≈ 6.67MB base64) */

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ShieldCheck, ArrowLeft, ChevronRight, Info, Download, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { triggerHaptic } from "@/lib/haptics";
+import { useClimateContext } from "@/lib/use-climate-context";
 
 // CRITICAL: SSR: false prevents hydration crash on mobile
 const CameraCapture = dynamic(
@@ -51,6 +52,7 @@ export default function ScanPage() {
   const [stage, setStage] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext(!showQuestionnaire && !analyzing);
   const router = useRouter();
 
   // ── PRE-LOAD MODELS ──────────────────────────────────────────────────────
@@ -109,7 +111,13 @@ export default function ScanPage() {
       const analysisResponse = await fetch("/api/analyse/free", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64String, context: qData }),
+        body: JSON.stringify({
+          imageBase64: base64String,
+          context: {
+            ...qData,
+            climate: climate ? { ...climate, source: "scan-time" as const } : null,
+          },
+        }),
       });
 
       const analysisResult = await analysisResponse.json();
@@ -378,6 +386,28 @@ export default function ScanPage() {
               Neutral face, front camera at eye level, and soft daylight gives the cleanest read for pigmentation, texture, and dehydration.
             </p>
           </div>
+          <div className="rounded-[18px] bg-white px-4 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#A377D2]">Climate Calibration</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-[#6E687A]">
+                  {climateLoading
+                    ? "Reading local UV, humidity, and pollution so the scan can stay grounded in today’s conditions."
+                    : climate
+                    ? `${climate.summary} The report will adjust guidance around these conditions.`
+                    : climateError || "Location is optional, but it helps the scan make more useful India-first recommendations."}
+                </p>
+              </div>
+              {!climate && (
+                <button
+                  onClick={() => void refreshClimate()}
+                  className="rounded-full bg-[#F3EEFB] px-3 py-1.5 text-[11px] font-bold text-[#A377D2] active:scale-[0.98] transition-transform"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex items-start gap-3 bg-white rounded-[16px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <Info className="w-4 h-4 text-[#9A9A9A] shrink-0 mt-0.5" strokeWidth={1.75} />
             <p className="text-[12px] text-[#9A9A9A] leading-relaxed">
@@ -387,7 +417,7 @@ export default function ScanPage() {
           <div className="flex items-center justify-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
             <span className="text-[10px] font-semibold text-[#9A9A9A] uppercase tracking-widest">
-              Privacy Protected · No Image Storage
+              Privacy Protected · Account-Linked Storage
             </span>
           </div>
         </motion.div>

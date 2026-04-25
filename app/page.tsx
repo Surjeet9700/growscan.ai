@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { Bell, Bookmark, ChevronRight, ScanSearch, ShoppingBag, Heart, ShieldCheck, Sparkles, SunMedium } from "lucide-react";
 import { fetchUserState } from "@/lib/user-state";
 import { FEATURES } from "@/lib/features";
+import { ClimateStressCard } from "@/components/ClimateStressCard";
+import { useClimateContext } from "@/lib/use-climate-context";
 
 interface LastScan {
   glow_score: number;
@@ -135,6 +137,7 @@ function WatchlistItem({
 export default function HomePage() {
   const { user } = useUser();
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
+  const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -256,6 +259,22 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="px-5 mb-5"
+      >
+        <ClimateStressCard
+          climate={climate}
+          loading={climateLoading}
+          error={climateError}
+          onRetry={() => void refreshClimate()}
+          title="Climate-Aware Skin Context"
+          subtitle="Live local conditions"
+        />
       </motion.div>
 
       {/* ── DAILY ROUTINE + SCAN RESULT CARD ROW ─────────────────────── */}

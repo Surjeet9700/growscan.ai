@@ -5,6 +5,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Camera, ChevronRight, TrendingUp, TrendingDown, ShoppingBag, BarChart3, Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
 import { FEATURES } from "@/lib/features";
+import { ClimateStressCard } from "@/components/ClimateStressCard";
+import { useClimateContext } from "@/lib/use-climate-context";
 
 interface HistoryEntry {
   id: string;
@@ -193,6 +195,7 @@ export default function HistoryPage() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [routines, setRoutines] = useState<RoutineData[]>([]);
   const [viewMode, setViewMode] = useState<"daily" | "monthly">("daily");
+  const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext();
   
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const d = new Date();
@@ -363,6 +366,17 @@ export default function HistoryPage() {
                : `Your average skin score is ${avgGlow}/10 over all time.`}
           </p>
         </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="px-5 mb-4">
+        <ClimateStressCard
+          climate={climate}
+          loading={climateLoading}
+          error={climateError}
+          onRetry={() => void refreshClimate()}
+          title="Today’s Environment Pressure"
+          subtitle="Live local conditions"
+        />
       </motion.div>
 
       {/* ── TOGGLE & VIEWS ── */}

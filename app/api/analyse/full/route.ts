@@ -11,6 +11,7 @@ import type { FullReportResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FullAnalyseSchema } from "@/lib/schemas";
 import { analyseWithOpenRouter } from "@/lib/openrouter";
+import { formatScanContextForPrompt } from "@/lib/scan-context";
 import crypto from "crypto";
 
 export const maxDuration = 60;
@@ -202,9 +203,7 @@ export async function POST(req: NextRequest) {
     const { imageBase64, paymentId, context } = validation.data;
 
     // 3. Build personalization context
-    const userContext = context
-      ? `Age Range: ${context.age ?? "unknown"}\nPrimary Concern: ${context.concern ?? "general"}\nWater Intake: ${context.habits ?? "unknown"}`
-      : "";
+    const userContext = formatScanContextForPrompt(context ?? null);
 
     const finalPrompt = userContext
       ? `${FULL_PROMPT}\n\n## Patient Context\n${userContext}`

@@ -9,6 +9,7 @@ import type { FreeAnalysisResult } from "@/lib/types";
 import { safeParseJSON } from "@/lib/responseParser";
 import { FreeAnalyseSchema } from "@/lib/schemas";
 import { analyseWithOpenRouter } from "@/lib/openrouter";
+import { formatScanContextForPrompt } from "@/lib/scan-context";
 import crypto from "crypto";
 
 export const maxDuration = 30;
@@ -182,9 +183,7 @@ export async function POST(req: NextRequest) {
     const { imageBase64, context } = validation.data;
 
     // 3. Build personalization context
-    const userContext = context
-      ? `Age Range: ${context.age ?? "unknown"}\nPrimary Concern: ${context.concern ?? "general"}\nWater Intake: ${context.habits ?? "unknown"}`
-      : "";
+    const userContext = formatScanContextForPrompt(context ?? null);
 
     // 4. Rate limiting (fail-open if DB unreachable)
     let dbAvailable = false;

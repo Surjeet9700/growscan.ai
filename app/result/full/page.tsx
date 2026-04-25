@@ -18,6 +18,9 @@ import { SkinProgressChart } from "@/components/ui/diagnostic/SkinProgressChart"
 import { GlowLogo } from "@/components/ui/branding/GlowLogo";
 import { fetchUserState } from "@/lib/user-state";
 import { FEATURES } from "@/lib/features";
+import { ClimateStressCard } from "@/components/ClimateStressCard";
+import { useClimateContext } from "@/lib/use-climate-context";
+import type { ClimateContext } from "@/lib/climate";
 
 // ── Amazon Product Card (fetches from /api/products) ─────────────────────────
 interface AmazonProduct {
@@ -199,7 +202,9 @@ function FullResultContent() {
   const [data, setData] = useState<any>(null);
   const [image, setImage] = useState<string | null>(null);
   const [scanTimestamp, setScanTimestamp] = useState<number | undefined>(undefined);
+  const [scanClimate, setScanClimate] = useState<ClimateContext | null>(null);
   const router = useRouter();
+  const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext();
 
   const searchParams = useSearchParams();
   const isSample = searchParams.get("sample") === "true";
@@ -209,6 +214,7 @@ function FullResultContent() {
       setData(SAMPLE_REPORT.report);
       setImage("/hero.png");
       setScanTimestamp(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago (sample)
+      setScanClimate(null);
       return;
     }
 
@@ -224,6 +230,7 @@ function FullResultContent() {
         setData(state.fullReport.report);
         setImage(state.fullReport.scan_image ?? null);
         setScanTimestamp(state.fullReport.timestamp ?? Date.now());
+        setScanClimate(state.fullReport.scan_context?.climate ?? null);
       })
       .catch(() => router.push("/"));
 
@@ -330,6 +337,17 @@ function FullResultContent() {
         <SkinProgressChart
           lastScanDate={scanTimestamp}
           recheckWeeks={data?.recheck_in_weeks ?? 4}
+        />
+      </div>
+
+      <div className="px-5 mt-6">
+        <ClimateStressCard
+          climate={scanClimate ?? climate}
+          loading={!scanClimate && climateLoading}
+          error={!scanClimate ? climateError : null}
+          onRetry={!scanClimate ? () => void refreshClimate() : undefined}
+          title="Climate Context For This Report"
+          subtitle={scanClimate ? "Captured at scan time" : "Live local conditions"}
         />
       </div>
 

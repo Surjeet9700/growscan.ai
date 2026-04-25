@@ -16,9 +16,11 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
-import type { FreeAnalysisResult } from "@/lib/types";
+import type { StoredFreeResult } from "@/lib/types";
 import { fetchUserState } from "@/lib/user-state";
 import { FEATURES } from "@/lib/features";
+import { ClimateStressCard } from "@/components/ClimateStressCard";
+import { useClimateContext } from "@/lib/use-climate-context";
 
 // ── Amazon product card type ──────────────────────────────────────────────────
 interface AmazonCard {
@@ -105,10 +107,11 @@ function MetricTile({
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function FreeResultPage() {
   const router = useRouter();
-  const [result, setResult] = useState<FreeAnalysisResult | null>(null);
+  const [result, setResult] = useState<StoredFreeResult | null>(null);
   const [scanImage, setScanImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [amazonProducts, setAmazonProducts] = useState<AmazonCard[]>([]);
+  const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -239,6 +242,22 @@ export default function FreeResultPage() {
             Upgrade to see facial zone callouts, ingredient rationale, and a routine designed for Indian weather conditions.
           </p>
         </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="px-5 mb-4"
+      >
+        <ClimateStressCard
+          climate={result.scan_context?.climate ?? climate}
+          loading={!result.scan_context?.climate && climateLoading}
+          error={!result.scan_context?.climate ? climateError : null}
+          onRetry={!result.scan_context?.climate ? () => void refreshClimate() : undefined}
+          title="Skin Stress Around This Scan"
+          subtitle={result.scan_context?.climate ? "Captured at scan time" : "Live local conditions"}
+        />
       </motion.div>
 
       {/* ── SKIN AGE + HEALTH ROW ────────────────────────────────────────── */}

@@ -1,11 +1,14 @@
 // lib/types.ts — Shared TypeScript interfaces for GlowScan
 
+import type { ClimateContext } from "@/lib/climate";
+
 export type FaceZoneSeverity = "none" | "mild" | "moderate" | "severe";
 
 export interface ScanContext {
   age?: string;
   concern?: string;
   habits?: string;
+  climate?: ClimateContext | null;
 }
 
 export interface FaceZone {
