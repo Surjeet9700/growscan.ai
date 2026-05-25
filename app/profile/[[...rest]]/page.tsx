@@ -6,17 +6,14 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
-  User,
   CheckSquare,
-  Lock,
   Bell,
-  Shield,
-  Globe,
   LogOut,
   ChevronRight,
   Sparkles,
 } from "lucide-react";
 import { fetchUserState } from "@/lib/user-state";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -51,7 +48,7 @@ function MenuRow({
           }`}
         >
           <Icon
-            className="w-4.5 h-4.5"
+            className="w-[18px] h-[18px]"
             strokeWidth={1.75}
             color={danger ? "#FF4B4B" : "#1A1A1A"}
           />
@@ -105,12 +102,8 @@ export default function ProfilePage() {
 
   const MENU_ITEMS: (MenuItem & { delay?: number })[] = [
     ...(isPremium ? [{ icon: Sparkles, label: "My Pro Report", href: "/result/full" }] : []),
-    { icon: User,        label: "Edit Profile",      href: "/profile/edit" },
-    { icon: CheckSquare, label: "Checklist",          href: "/history"      },
-    { icon: Lock,        label: "Change Password",    href: "/profile/security" },
-    { icon: Bell,        label: "Notification",       href: "/profile/notifications" },
-    { icon: Shield,      label: "Security",           href: "/profile/security" },
-    { icon: Globe,       label: "Language",           href: "/profile/language" },
+    { icon: CheckSquare, label: "My Scans",            href: "/history"      },
+    { icon: Bell,        label: "Notifications",       href: "/profile/notifications" },
   ];
 
   return (
@@ -188,6 +181,16 @@ export default function ProfilePage() {
             <MenuRow key={i} {...item} delay={0.05 + i * 0.04} />
           ))}
         </div>
+      </motion.div>
+
+      {/* ── NOTIFICATIONS ─────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="px-5 mb-4"
+      >
+        <NotificationPrompt />
       </motion.div>
 
       {/* ── LOGOUT ───────────────────────────────────────────────────────── */}

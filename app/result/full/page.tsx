@@ -21,6 +21,7 @@ import { FEATURES } from "@/lib/features";
 import { ClimateStressCard } from "@/components/ClimateStressCard";
 import { useClimateContext } from "@/lib/use-climate-context";
 import type { ClimateContext } from "@/lib/climate";
+import type { FullReportResult } from "@/lib/types";
 
 // ── Amazon Product Card (fetches from /api/products) ─────────────────────────
 interface AmazonProduct {
@@ -138,48 +139,67 @@ const severityBorder: Record<string, string> = {
 
 const SAMPLE_REPORT = {
   report: {
-    skin_type: "Combination",
+    skin_type: "combination",
+    skin_type_reason: "Visible oil production in the T-zone with normal-to-dry cheek areas indicates combination skin with sebum imbalance.",
     skin_age_estimate: "24-26 years",
     summary: "Your skin shows strong resilience with high hydration levels in the U-zone. We detected mild follicular congestion in the T-zone and early-stage oxidative stress markers around the orbital region. Overall health is optimal but requires targeted sebum control.",
+    zonal_intelligence: {
+      forehead: { score: 72, observation: "Mild congestion visible with slight oil buildup in the furrow lines." },
+      cheeks: { score: 85, observation: "Well-hydrated with even texture and minimal pore visibility." },
+      t_zone: { score: 68, observation: "Elevated sebum production with visible pore congestion around the nose." },
+    },
     concerns: {
       pigmentation: "none",
       acne_or_breakouts: "mild",
       dark_circles: "mild",
-      pores: "moderate",
-      texture: "none",
-      hydration: "none",
-      oiliness: "moderate"
+      pores: "slightly enlarged",
+      texture: "slightly uneven",
+      hydration: "slightly dehydrated",
+      oiliness: "moderate",
     },
+    dermal_indices: {
+      barrier_resistance: 78,
+      luminosity_index: 72,
+      clarity_score: 74,
+    },
+    fitzpatrick_scale: "Type IV",
+    iga_acne_scale: "1 - Almost Clear",
     priority_ingredients: [
-      { ingredient: "Niacinamide (5%)", reason: "Effectively regulates sebum production in the T-zone while strengthening the lipid barrier." },
-      { ingredient: "Salicylic Acid (BHA)", reason: "Lipophilic action penetrates pores to dissolve keratin plugs and prevent future breakouts." },
-      { ingredient: "Hyaluronic Acid", reason: "Maintains transepidermal water levels and plumps fine lines in the dehydration-prone cheek zones." }
+      { ingredient: "Niacinamide (5%)", scientific_role: "Sebum regulator", reason: "Effectively regulates sebum production in the T-zone while strengthening the lipid barrier." },
+      { ingredient: "Salicylic Acid (BHA)", scientific_role: "Keratolytic", reason: "Lipophilic action penetrates pores to dissolve keratin plugs and prevent future breakouts." },
+      { ingredient: "Hyaluronic Acid", scientific_role: "Humectant", reason: "Maintains transepidermal water levels and plumps fine lines in the dehydration-prone cheek zones." }
     ],
     morning_routine_order: [
-      "Gently cleanse with a pH-balanced foaming wash",
-      "Apply 2 drops of Niacinamide serum to T-zone",
-      "Layer a lightweight gel moisturizer",
-      "MANDATORY: Broad-spectrum SPF 50+"
+      { step: "Cleanser", product: "Gentle pH-balanced foaming wash", purpose: "Remove overnight sebum without stripping" },
+      { step: "Serum", product: "Niacinamide 5%", purpose: "Regulate T-zone oil production" },
+      { step: "Moisturizer", product: "Lightweight gel moisturizer", purpose: "Hydrate without heaviness" },
+      { step: "Sunscreen", product: "Broad-spectrum SPF 50+", purpose: "Protect against UV and PIH" },
     ],
     night_routine_order: [
-      "Double cleanse starting with a cleansing oil",
-      "Apply BHA exfoliant (3x per week)",
-      "Niacinamide serum (all over)",
-      "Soothing ceramide night cream"
+      { step: "Cleanser", product: "Oil cleanser + foam cleanser", purpose: "Double cleanse to remove SPF and impurities" },
+      { step: "Exfoliant", product: "BHA 2% (3x/week)", purpose: "Deep pore cleansing and cell turnover" },
+      { step: "Serum", product: "Niacinamide 5%", purpose: "Overnight sebum regulation" },
+      { step: "Moisturizer", product: "Ceramide night cream", purpose: "Barrier repair and hydration lock" },
     ],
     lifestyle_tips: [
       "Increase dietary antioxidants (Vitamin C, E)",
       "Sleep 7+ hours for optimal cellular repair",
       "Wash pillowcases weekly to reduce bacterial load"
     ],
+    root_causes: [
+      { cause: "Hormonal fluctuation", likelihood: "high", explanation: "T-zone oiliness and cyclical breakouts along the jawline suggest hormonal influence on sebum production.", action: "Track your cycle and adjust skincare intensity around peak hormonal days." },
+      { cause: "Environmental stress", likelihood: "moderate", explanation: "Mild oxidative stress markers around the eyes indicate UV and pollution exposure despite protection.", action: "Reapply sunscreen every 2 hours when outdoors, especially during peak UV hours." },
+      { cause: "Barrier micro-damage", likelihood: "low", explanation: "Slight sensitivity on the cheeks suggests occasional over-exfoliation or harsh product use.", action: "Reduce active ingredient frequency and add a ceramide-rich moisturizer on active nights." }
+    ],
     strengths: [
       "High elastic collagen density",
       "Uniform melanin distribution",
       "Robust skin barrier function"
     ],
-    recheck_in_weeks: 4
-  }
-} as const;
+    recheck_in_weeks: 4,
+    error: null,
+  } as FullReportResult,
+};
 
 function formatRoutineStep(step: unknown) {
   if (typeof step === "string") return step;
@@ -199,7 +219,7 @@ function formatSkinAge(value: unknown) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function FullResultContent() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<FullReportResult | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [scanTimestamp, setScanTimestamp] = useState<number | undefined>(undefined);
   const [scanClimate, setScanClimate] = useState<ClimateContext | null>(null);
@@ -222,8 +242,14 @@ function FullResultContent() {
 
     fetchUserState(controller.signal)
       .then((state) => {
-        if (!state?.fullReport?.report) {
-          router.push("/");
+        // Not authenticated → redirect to sign-in
+        if (!state) {
+          router.push("/sign-in");
+          return;
+        }
+        // Authenticated but no paid report → back to free result
+        if (!state.fullReport?.report) {
+          router.push("/result/free");
           return;
         }
 
@@ -232,7 +258,7 @@ function FullResultContent() {
         setScanTimestamp(state.fullReport.timestamp ?? Date.now());
         setScanClimate(state.fullReport.scan_context?.climate ?? null);
       })
-      .catch(() => router.push("/"));
+      .catch(() => router.push("/sign-in"));
 
     return () => controller.abort();
   }, [router, isSample]);
@@ -245,7 +271,7 @@ function FullResultContent() {
   );
 
   return (
-    <div className="min-h-screen bg-forensic pb-40 font-poppins text-[#2F2F30]">
+    <div className="min-h-screen bg-[#FAFAFA] pb-40 font-[var(--font-poppins)] text-[#2F2F30]">
 
       {/* ── HEADER ── */}
       <div className="px-5 pt-8 pb-3 flex items-center justify-between">
@@ -314,13 +340,37 @@ function FullResultContent() {
       {/* ── GLASS RESULTS OVERLAY ── */}
       <div className="px-5 -mt-20 relative z-10 space-y-5">
         <GlassResultCard>
-          <SkinHealthBar label="Your Skin Health" value={72} className="mb-8" />
+          <SkinHealthBar
+            label="Your Skin Health"
+            value={data.dermal_indices ? Math.round((data.dermal_indices.barrier_resistance + data.dermal_indices.luminosity_index + data.dermal_indices.clarity_score) / 3) : 0}
+            className="mb-8"
+          />
           
-          <div className="lux-grid">
-            <MetricPill label="Dryness" value={40} status="High" delay={0.1} />
-            <MetricPill label="Spots" value={20} status="Low" delay={0.2} />
-            <MetricPill label="Acne" value={10} status="Elevated" delay={0.3} />
-            <MetricPill label="Moisture" value={60} status="Stable" delay={0.4} />
+          <div className="grid grid-cols-4 gap-3">
+            <MetricPill
+              label="Barrier"
+              value={data.dermal_indices?.barrier_resistance ?? 0}
+              status={data.dermal_indices && data.dermal_indices.barrier_resistance >= 70 ? "Stable" : data.dermal_indices && data.dermal_indices.barrier_resistance >= 40 ? "Elevated" : "High"}
+              delay={0.1}
+            />
+            <MetricPill
+              label="Luminosity"
+              value={data.dermal_indices?.luminosity_index ?? 0}
+              status={data.dermal_indices && data.dermal_indices.luminosity_index >= 70 ? "Stable" : data.dermal_indices && data.dermal_indices.luminosity_index >= 40 ? "Elevated" : "Low"}
+              delay={0.2}
+            />
+            <MetricPill
+              label="Clarity"
+              value={data.dermal_indices?.clarity_score ?? 0}
+              status={data.dermal_indices && data.dermal_indices.clarity_score >= 70 ? "Stable" : data.dermal_indices && data.dermal_indices.clarity_score >= 40 ? "Elevated" : "Low"}
+              delay={0.3}
+            />
+            <MetricPill
+              label="Hydration"
+              value={data.concerns?.hydration === "well hydrated" ? 85 : data.concerns?.hydration === "slightly dehydrated" ? 50 : 20}
+              status={data.concerns?.hydration === "well hydrated" ? "Stable" : data.concerns?.hydration === "slightly dehydrated" ? "Elevated" : "High"}
+              delay={0.4}
+            />
           </div>
 
           <button className="w-full mt-6 flex items-center justify-between bg-white rounded-3xl p-4 border border-[#F6F1FB] shadow-sm active:scale-[0.98] transition-all">
@@ -359,7 +409,7 @@ function FullResultContent() {
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="px-5 mt-10"
       >
-        <div className="glass-ios p-6 border-black/[0.02]">
+        <div className="bg-white/80 backdrop-blur-sm border border-black/[0.04] rounded-[24px] shadow-[0_2px_12px_rgba(0,0,0,0.05)] p-6 border-black/[0.02]">
           <div className="flex items-center gap-2 mb-4">
             <Star className="w-4 h-4 text-[#A377D2] fill-[#A377D2]" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-black/20">Clinical Summary</span>
@@ -373,7 +423,7 @@ function FullResultContent() {
       {/* ── SKIN STRENGTHS ── */}
       {data.strengths?.length > 0 && (
         <div className="px-5 mt-10">
-          <div className="glass-ios p-6 border-black/[0.02]">
+          <div className="bg-white/80 backdrop-blur-sm border border-black/[0.04] rounded-[24px] shadow-[0_2px_12px_rgba(0,0,0,0.05)] p-6 border-black/[0.02]">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-2xl bg-[#F0FDF4] text-[#10B981] flex items-center justify-center">
                 <ShieldCheck className="w-6 h-6 stroke-[1.5px]" />
@@ -408,7 +458,7 @@ function FullResultContent() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="glass-ios p-6 relative overflow-hidden"
+            className="bg-white/80 backdrop-blur-sm border border-black/[0.04] rounded-[24px] shadow-[0_2px_12px_rgba(0,0,0,0.05)] p-6 relative overflow-hidden"
           >
              <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
                <Sun className="w-20 h-20" />
@@ -418,7 +468,7 @@ function FullResultContent() {
                 <Sun className="w-6 h-6 stroke-[1.5px]" />
               </div>
               <div>
-                <h3 className="text-base font-black text-ink">Morning Protocol</h3>
+                <h3 className="text-base font-black text-[#1A1A1A]">Morning Protocol</h3>
                 <p className="text-[10px] text-black/30 font-black uppercase tracking-widest leading-tight">Focus: Protection</p>
               </div>
             </div>
@@ -446,7 +496,7 @@ function FullResultContent() {
                     className="flex gap-4 items-start group"
                   >
                     <span className="text-[10px] font-black text-black/15 pt-1">0{i + 1}</span>
-                    <p className="text-[13px] font-bold text-ink leading-snug group-hover:text-[#A377D2] transition-colors">{formatRoutineStep(step)}</p>
+                    <p className="text-[13px] font-bold text-[#1A1A1A] leading-snug group-hover:text-[#A377D2] transition-colors">{formatRoutineStep(step)}</p>
                   </motion.div>
                 ))}
               </motion.div>
@@ -459,7 +509,7 @@ function FullResultContent() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="glass-midnight p-6 relative overflow-hidden group"
+            className="bg-[#1A1A1A] text-white p-6 relative overflow-hidden group"
           >
              <div className="absolute top-0 right-0 p-6 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
                <Moon className="w-20 h-20 text-indigo-200" />
@@ -514,13 +564,13 @@ function FullResultContent() {
           <span className="text-[10px] font-bold text-black/20 uppercase tracking-widest leading-none">Targeted Care</span>
         </div>
         <div className="space-y-4">
-          {data.priority_ingredients?.map((item: any, i: number) => (
-            <div key={i} className="glass-ios p-6 flex items-start gap-5 border-black/[0.02]">
+          {data.priority_ingredients?.map((item: { ingredient: string; reason: string }, i: number) => (
+            <div key={i} className="bg-white/80 backdrop-blur-sm border border-black/[0.04] rounded-[24px] shadow-[0_2px_12px_rgba(0,0,0,0.05)] p-6 flex items-start gap-5 border-black/[0.02]">
               <div className="w-12 h-12 rounded-2xl bg-[#ECFDF5] text-[#10B981] flex items-center justify-center shrink-0 border border-[#D1FAE5]/50">
                 <Leaf className="w-6 h-6 stroke-[1.5px]" />
               </div>
               <div>
-                <h4 className="text-base font-black text-ink mb-1">{item.ingredient}</h4>
+                <h4 className="text-base font-black text-[#1A1A1A] mb-1">{item.ingredient}</h4>
                 <p className="text-[13px] text-black/50 leading-relaxed font-bold tracking-tight">{item.reason}</p>
               </div>
             </div>
@@ -536,7 +586,7 @@ function FullResultContent() {
           </div>
           
           <div className="space-y-5">
-            {data.priority_ingredients?.map((item: any, i: number) => (
+            {data.priority_ingredients?.map((item: { ingredient: string; reason: string }, i: number) => (
               <AmazonProductCard key={`prod-${i}`} ingredient={item.ingredient} />
             ))}
           </div>
@@ -544,18 +594,60 @@ function FullResultContent() {
       ) : (
         <div className="px-5 mt-14">
           <div className="rounded-[36px] bg-white p-7 border border-[#F1E9FB] shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#A377D2] mb-2">Launch Note</p>
-            <h4 className="text-[22px] font-black text-[#2F2F30] leading-tight mb-3">This release is report-first, not commerce-first.</h4>
-            <p className="text-[14px] text-[#5D5766] leading-relaxed">
-              Ingredient recommendations stay in the report so the product experience can launch later with a stronger affiliate and inventory foundation.
-            </p>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#A377D2] mb-2">Why GlowScan is different</p>
+            <h4 className="text-[22px] font-black text-[#2F2F30] leading-tight mb-3">Built for Indian skin. Calibrated to your city.</h4>
+            <div className="space-y-3 mt-4">
+              {[
+                { icon: "🌿", text: "Skin-tone calibrated for South Asian complexions — Western apps misread darker tones." },
+                { icon: "☁️", text: "Climate-aware routine — UV index, humidity & PIH risk from your city's live data." },
+                { icon: "💊", text: "Ingredients matched to Indian pharmacy — Niacinamide, BHA, Vitamin C." },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
+                  <p className="text-[13px] text-[#5D5766] leading-relaxed">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ROOT CAUSES ── */}
+      {data.root_causes && data.root_causes.length > 0 && (
+        <div className="px-5 mt-14">
+          <div className="bg-white rounded-[40px] p-8 border border-[#F6F1FB] shadow-sm">
+            <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-black/20 mb-2">Root Cause Analysis</h4>
+            <h3 className="text-xl font-bold text-[#2F2F30] mb-6">Why Your Skin Reacts This Way</h3>
+            <div className="space-y-4">
+              {data.root_causes.map((rc: { cause: string; likelihood: string; explanation: string; action: string }, i: number) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-[20px] bg-[#FAF7FE]">
+                  <div
+                    className={`w-3 h-3 rounded-full mt-1 shrink-0 ${
+                      rc.likelihood === "high"
+                        ? "bg-[#A377D2]"
+                        : rc.likelihood === "moderate"
+                        ? "bg-amber-400"
+                        : "bg-gray-300"
+                    }`}
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[14px] font-bold text-[#1A1A1A]">{rc.cause}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#9A9A9A]">{rc.likelihood}</span>
+                    </div>
+                    <p className="text-[12px] text-[#666] leading-relaxed mb-2">{rc.explanation}</p>
+                    <p className="text-[12px] font-semibold text-[#A377D2]">{rc.action}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* ── LIFESTYLE TIPS ── */}
       <div className="px-5 mt-14">
-        <div className="glass-midnight rounded-[40px] p-8 text-white relative overflow-hidden">
+        <div className="bg-[#1A1A1A] text-white rounded-[40px] p-8 text-white relative overflow-hidden">
            <div className="absolute top-0 right-0 p-8 opacity-[0.05]">
              <Activity className="w-32 h-32" />
            </div>

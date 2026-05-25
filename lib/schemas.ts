@@ -55,7 +55,6 @@ export const PaymentVerifySchema = z.object({
   razorpay_order_id: z.string().min(1),
   razorpay_payment_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
-  userId: z.string().optional(),
 });
 
 /** Validates the body of POST /api/history — only allow known scan types */
@@ -64,4 +63,8 @@ export const HistoryPostSchema = z.object({
     message: "type must be 'free' or 'full'",
   }),
   result: z.record(z.string(), z.unknown()),
+});
+
+export const PalmAnalyseSchema = z.object({
+  imageBase64: imageBase64Schema,
 });

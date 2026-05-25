@@ -42,13 +42,13 @@ export default function ShopPage() {
               <ShoppingBag className="w-6 h-6 text-[#A377D2]" />
             </div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#A377D2] mb-2">
-              Launch Mode
+              Coming Soon
             </p>
             <h2 className="text-[26px] font-black text-[#1A1A1A] leading-tight mb-3">
-              Product shopping is temporarily hidden.
+              Personalized product picks, arriving soon.
             </h2>
             <p className="text-[14px] text-[#666666] leading-relaxed mb-5">
-              Affiliate APIs are not live yet, so public launch is focused on scan quality, routines, and report conversion.
+              We're curating Indian skincare products that match your AI scan — Nykaa, Minimalist, and more. Be the first to know.
             </p>
             <Link href="/scan" className="btn-purple w-full">
               Start a Scan

@@ -102,11 +102,11 @@ export function ProcessingOverlay({ isOpen }: { isOpen: boolean }) {
                     High traffic detected. Please don't refresh — your personalized routine is almost finished.
                   </p>
                   <a 
-                    href="mailto:support@glowscan.ai" 
+                    href="mailto:support@glowscan.app" 
                     className="inline-flex items-center gap-2 text-[10px] font-black text-amber-600 hover:text-amber-700 transition-colors uppercase tracking-tighter"
                   >
                     <Mail className="w-3 h-3" />
-                    Support: support@glowscan.ai
+                    Support: support@glowscan.app
                   </a>
                 </motion.div>
               )}

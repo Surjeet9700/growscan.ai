@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,6 +9,7 @@ import { Loader2, ShieldCheck, ArrowLeft, ChevronRight, Info, Download, Sparkles
 import Link from "next/link";
 import { triggerHaptic } from "@/lib/haptics";
 import { useClimateContext } from "@/lib/use-climate-context";
+import { CameraQualityFeedback } from "@/components/CameraQualityFeedback";
 
 // CRITICAL: SSR: false prevents hydration crash on mobile
 const CameraCapture = dynamic(
@@ -43,6 +44,12 @@ const SKIN_CONCERNS = [
   "Dark Spots / PIH",
 ];
 
+const CAPTURE_STEPS = [
+  { label: "Front View", hint: "Look straight at the camera" },
+  { label: "Right Side", hint: "Turn your head slightly right" },
+  { label: "Left Side", hint: "Turn your head slightly left" },
+];
+
 export default function ScanPage() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(true);
   const [qStep, setQStep] = useState(0);
@@ -52,6 +59,9 @@ export default function ScanPage() {
   const [stage, setStage] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [cameraVideoRef, setCameraVideoRef] = useState<React.RefObject<HTMLVideoElement | null> | null>(null);
+  const [captureStep, setCaptureStep] = useState(0);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext(!showQuestionnaire && !analyzing);
   const router = useRouter();
 
@@ -86,6 +96,19 @@ export default function ScanPage() {
       else clearInterval(id);
     }, 1200);
     return id;
+  };
+
+  const handleStepComplete = (stepIndex: number, base64: string) => {
+    triggerHaptic("light");
+    const newImages = [...capturedImages, base64];
+    setCapturedImages(newImages);
+
+    if (stepIndex < CAPTURE_STEPS.length - 1) {
+      setCaptureStep(stepIndex + 1);
+    } else {
+      // All steps complete — analyze the front-facing image (first capture)
+      handleCapture(newImages[0]);
+    }
   };
 
   const handleCapture = async (base64String: string) => {
@@ -166,7 +189,7 @@ export default function ScanPage() {
             }
           }}
           className="w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] flex items-center justify-center active:scale-90 transition-transform">
-          <ArrowLeft className="w-4.5 h-4.5 text-[#1A1A1A]" strokeWidth={2} />
+          <ArrowLeft className="w-[18px] h-[18px] text-[#1A1A1A]" strokeWidth={2} />
         </button>
         <h1 className="text-[17px] font-black text-[#1A1A1A]">Scan Skin</h1>
         {!showQuestionnaire && !analyzing ? (
@@ -318,7 +341,22 @@ export default function ScanPage() {
               transition={{ type: "spring", damping: 22 }}
               className="relative"
             >
-              <CameraCapture onCaptureAction={handleCapture} disabled={analyzing} />
+              <CameraCapture
+                onCaptureAction={handleCapture}
+                disabled={analyzing}
+                onVideoRef={setCameraVideoRef}
+                captureSteps={CAPTURE_STEPS}
+                onStepComplete={handleStepComplete}
+                currentStep={captureStep}
+              />
+
+              {/* Camera quality feedback */}
+              {cameraVideoRef && !analyzing && (
+                <CameraQualityFeedback
+                  videoRef={cameraVideoRef}
+                  isActive={!showQuestionnaire && !analyzing}
+                />
+              )}
 
               {/* Analysis overlay */}
               <AnimatePresence>
@@ -385,28 +423,6 @@ export default function ScanPage() {
             <p className="text-[13px] font-semibold leading-relaxed text-white/88">
               Neutral face, front camera at eye level, and soft daylight gives the cleanest read for pigmentation, texture, and dehydration.
             </p>
-          </div>
-          <div className="rounded-[18px] bg-white px-4 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#A377D2]">Climate Calibration</p>
-                <p className="mt-1 text-[12px] leading-relaxed text-[#6E687A]">
-                  {climateLoading
-                    ? "Reading local UV, humidity, and pollution so the scan can stay grounded in today’s conditions."
-                    : climate
-                    ? `${climate.summary} The report will adjust guidance around these conditions.`
-                    : climateError || "Location is optional, but it helps the scan make more useful India-first recommendations."}
-                </p>
-              </div>
-              {!climate && (
-                <button
-                  onClick={() => void refreshClimate()}
-                  className="rounded-full bg-[#F3EEFB] px-3 py-1.5 text-[11px] font-bold text-[#A377D2] active:scale-[0.98] transition-transform"
-                >
-                  Retry
-                </button>
-              )}
-            </div>
           </div>
           <div className="flex items-start gap-3 bg-white rounded-[16px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
             <Info className="w-4 h-4 text-[#9A9A9A] shrink-0 mt-0.5" strokeWidth={1.75} />

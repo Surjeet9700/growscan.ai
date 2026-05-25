@@ -1,28 +1,20 @@
 // app/api/analyse/free/route.ts
-// Free tier skin scan — Gemini vision with model fallback chain + native responseSchema
-import { genAI } from "@/lib/gemini";
+// Free tier skin scan — delegates to lib/ai-engine for AI orchestration
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { dbConnect } from "@/lib/mongodb";
 import Scan from "@/models/Scan";
 import type { FreeAnalysisResult } from "@/lib/types";
-import { safeParseJSON } from "@/lib/responseParser";
 import { FreeAnalyseSchema } from "@/lib/schemas";
-import { analyseWithOpenRouter } from "@/lib/openrouter";
 import { formatScanContextForPrompt } from "@/lib/scan-context";
+import { analyse, AiEngineException } from "@/lib/ai-engine";
+import { notifyScanComplete } from "@/lib/notification-triggers";
 import crypto from "crypto";
 
 export const maxDuration = 30;
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
-
-// Best model first — fallback on 429/404
-const MODEL_PRIORITY = [
-  "gemini-2.5-flash",      // best vision + reasoning
-  "gemini-2.5-flash-lite", // fastest, good for structured output
-  "gemini-2.0-flash",      // legacy fallback
-];
 
 // ── Gemini native JSON schema (guaranteed valid output — no regex parsing needed) ─
 const RESPONSE_SCHEMA = {
@@ -35,11 +27,24 @@ const RESPONSE_SCHEMA = {
     skin_age_estimate:{ type: "INTEGER" },
     primary_ingredient: { type: "STRING" },
     preview_insight:  { type: "STRING" },
+    root_causes: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          cause: { type: "STRING" },
+          likelihood: { type: "STRING", enum: ["high", "moderate", "low"] },
+          explanation: { type: "STRING" },
+          action: { type: "STRING" },
+        },
+        required: ["cause", "likelihood", "explanation", "action"],
+      },
+    },
     error: { type: "STRING", nullable: true },
   },
   required: [
     "skin_type","skin_type_reason","top_concern","glow_score",
-    "preview_insight", "primary_ingredient"
+    "preview_insight", "primary_ingredient", "root_causes"
   ],
 } as const;
 
@@ -54,6 +59,22 @@ Generate a FREE skin preview from the face photo. Only report what is visually d
 - Prioritize visible pigmentation, tanning, post-acne marks, oil imbalance, dehydration, and barrier stress.
 - Heat, humidity, strong UV exposure, hard water, and pollution are common real-world stressors.
 - PIH is often more relevant than wrinkle depth in younger users.
+
+## Root Cause Analysis
+Analyze visible skin signs and identify 2-3 likely root causes. Consider these categories:
+- **Hormonal**: Jawline/chin breakouts, cyclical patterns, oily T-zone
+- **Diet-related**: Dairy/sugar-linked breakouts, inflammation, dullness
+- **Stress-induced**: Forehead breakouts, tension areas, fatigue markers
+- **Environmental**: Pollution damage, UV exposure, climate-related dehydration
+- **Product-related**: Clogged pores from comedogenic products, irritation patterns
+- **Barrier damage**: Over-exfoliation signs, sensitivity, tightness
+- **Genetic predisposition**: Fitzpatrick type tendencies, pore size, sebum patterns
+
+For each root cause, provide:
+- cause: Short label (e.g. "Hormonal imbalance")
+- likelihood: "high", "moderate", or "low" based on visible evidence
+- explanation: One sentence connecting visible signs to this cause
+- action: One specific, actionable step
 
 ## Calibration
 - glow_score is 1-10 where most normal users should land between 5 and 7.
@@ -79,84 +100,6 @@ Generate a FREE skin preview from the face photo. Only report what is visually d
 ## Error Handling
 If the image is blurry, too dark, overexposed, angled away, or no clear face is visible:
 Set error to exactly "Image quality too low. Please retake in bright, natural light facing the camera." and return safe low-detail values.`;
-
-// ── Fallback chain ─────────────────────────────────────────────────────────────
-async function runWithFallback(
-  imageBase64: string,
-  userContext: string = ""
-): Promise<{ data: FreeAnalysisResult; modelUsed: string }> {
-  const finalPrompt = userContext
-    ? `${SKIN_PROMPT}\n\n## Patient Context\n${userContext}`
-    : SKIN_PROMPT;
-
-  const imageData = {
-    inlineData: {
-      mimeType: "image/jpeg" as const,
-      data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
-    },
-  };
-
-  let lastError: unknown = null;
-
-  for (const modelName of MODEL_PRIORITY) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          temperature: 0.25,
-          topP: 0.85,
-          maxOutputTokens: 4096,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA as any,
-        },
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 25000)
-      );
-
-      const result = await Promise.race([
-        model.generateContent([finalPrompt, imageData]),
-        timeoutPromise,
-      ]) as any;
-
-      const text = result.response.text();
-      const parsed = safeParseJSON<FreeAnalysisResult>(text);
-
-      // Strict validation — reject if core fields missing
-      if (!parsed?.skin_type) throw new Error("Incomplete response: missing skin_type");
-      if (parsed.glow_score === undefined) throw new Error("Incomplete response: missing glow_score");
-
-      return { data: parsed, modelUsed: modelName };
-
-    } catch (err: any) {
-      const status = err?.status ?? 0;
-      const msg = String(err?.message ?? "");
-      const isQuota = status === 429 || msg.includes("429") || msg.toLowerCase().includes("quota");
-      
-      console.warn(`[Gemini Free] ${modelName} failed (${msg}), trying next…`);
-      lastError = err;
-      continue;
-    }
-  }
-
-  // ── FINAL FALLBACK: OpenRouter ────────────────────────────────────────────
-  console.warn("[Free Analysis] All Gemini models exhausted. Trying OpenRouter…");
-  try {
-    const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
-    const parsed = safeParseJSON<FreeAnalysisResult>(text);
-
-    if (parsed?.skin_type || parsed?.error) {
-      return { data: parsed, modelUsed: "openrouter-fallback" };
-    }
-  } catch (orErr: any) {
-    console.error("[OpenRouter Fallback] Failed:", orErr.message);
-  }
-
-  const quotaErr = new Error("QUOTA_EXCEEDED");
-  (quotaErr as any).isQuota = true;
-  throw quotaErr;
-}
 
 // ── Route Handler ──────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -184,6 +127,9 @@ export async function POST(req: NextRequest) {
 
     // 3. Build personalization context
     const userContext = formatScanContextForPrompt(context ?? null);
+    const finalPrompt = userContext
+      ? `${SKIN_PROMPT}\n\n## Patient Context\n${userContext}`
+      : SKIN_PROMPT;
 
     // 4. Rate limiting (fail-open if DB unreachable)
     let dbAvailable = false;
@@ -208,15 +154,26 @@ export async function POST(req: NextRequest) {
       console.warn("[MongoDB] Rate limit check skipped — DB unavailable:", (dbErr as Error).message);
     }
 
-    // 5. AI analysis with fallback chain
+    // 5. AI analysis via deep module
     let data: FreeAnalysisResult;
     let modelUsed = "unknown";
     try {
-      const result = await runWithFallback(imageBase64, userContext);
+      const result = await analyse<FreeAnalysisResult>({
+        imageBase64,
+        prompt: finalPrompt,
+        schema: RESPONSE_SCHEMA as Record<string, unknown>,
+        temperature: 0.25,
+        maxTokens: 4096,
+        timeoutMs: 25000,
+        validate: (d) => {
+          const parsed = d as FreeAnalysisResult;
+          return !!parsed?.skin_type && parsed.glow_score !== undefined;
+        },
+      });
       data = result.data;
       modelUsed = result.modelUsed;
-    } catch (err: any) {
-      if (err?.isQuota) {
+    } catch (err: unknown) {
+      if (err instanceof AiEngineException && err.code === "QUOTA_EXCEEDED") {
         return NextResponse.json(
           { error: "AI engine is at capacity. Please try again in a few minutes." },
           { status: 503 }
@@ -250,6 +207,8 @@ export async function POST(req: NextRequest) {
         scan_context: context ?? null,
       } as Record<string, unknown>,
     });
+
+    notifyScanComplete(userId).catch(() => {});
 
     return NextResponse.json({
       ...enrichedData,

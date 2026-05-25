@@ -26,6 +26,13 @@ export interface SkinTip {
   urgency: "daily" | "weekly" | "lifestyle";
 }
 
+export interface RootCause {
+  cause: string;
+  likelihood: "high" | "moderate" | "low";
+  explanation: string;
+  action: string;
+}
+
 /** Numeric scores (0–100) for the 4 frontend metric rings */
 export interface SkinMetricScores {
   acne_score: number;     // 0–100 (higher = more acne)
@@ -42,6 +49,7 @@ export interface FreeAnalysisResult extends SkinMetricScores {
   preview_insight: string;
   face_zones: FaceZone[];
   skin_tips: SkinTip[];
+  root_causes: RootCause[];
   skin_age_estimate?: number;
   primary_ingredient?: string;
   error: string | null;
@@ -99,7 +107,8 @@ export interface FullReportResult {
     t_zone: ZoneIntelligence;
   };
   concerns: SkinConcerns;
-  skin_age_estimate: string; // e.g. "Appears 24–28 years..."
+  root_causes: RootCause[];
+  skin_age_estimate: string;
   dermal_indices: DermalIndices;
   strengths: string[];
   priority_ingredients: PriorityIngredient[];

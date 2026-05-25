@@ -104,7 +104,7 @@ const BASE_NAV_ITEMS: Array<{
   { href: "/profile", label: "Profile", Icon: ProfileIcon },
 ];
 
-const HIDDEN_ROUTES = ["/result/free", "/result/full", "/sign-in", "/sign-up"];
+const HIDDEN_ROUTES = ["/result/free", "/result/full", "/sign-in", "/sign-up", "/palm"];
 
 export function BottomNav() {
   const pathname = usePathname();

@@ -18,9 +18,21 @@ import { motion, AnimatePresence } from "framer-motion";
 interface CameraCaptureProps {
   onCaptureAction: (base64: string) => void;
   disabled?: boolean;
+  onVideoRef?: (ref: React.RefObject<HTMLVideoElement | null>) => void;
+  /** Multi-step capture: pass steps array to enable sequential captures */
+  captureSteps?: Array<{ label: string; hint: string }>;
+  onStepComplete?: (stepIndex: number, base64: string) => void;
+  currentStep?: number;
 }
 
-export function CameraCapture({ onCaptureAction, disabled }: CameraCaptureProps) {
+export function CameraCapture({
+  onCaptureAction,
+  disabled,
+  onVideoRef,
+  captureSteps,
+  onStepComplete,
+  currentStep = 0,
+}: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +44,12 @@ export function CameraCapture({ onCaptureAction, disabled }: CameraCaptureProps)
   const [compressing, setCompressing] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (onVideoRef && videoRef.current) {
+      onVideoRef(videoRef);
+    }
+  }, [onVideoRef]);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
@@ -64,8 +82,9 @@ export function CameraCapture({ onCaptureAction, disabled }: CameraCaptureProps)
         );
         setCameraReady(true);
       }
-    } catch (err: any) {
-      const isPermission = err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError";
+    } catch (err: unknown) {
+      const name = err instanceof Error ? err.name : "";
+      const isPermission = name === "NotAllowedError" || name === "PermissionDeniedError";
       setCameraError(
         isPermission
           ? "Camera permission denied. Please allow access in your browser settings."
@@ -138,12 +157,48 @@ export function CameraCapture({ onCaptureAction, disabled }: CameraCaptureProps)
 
     canvas.toBlob(
       (blob) => {
-        if (blob) processFile(new File([blob], "capture.jpg", { type: "image/jpeg" }));
+        if (!blob) return;
+        const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+        setCompressing(true);
+
+        imageCompression(file, {
+          maxSizeMB: 0.4,
+          maxWidthOrHeight: 800,
+          useWebWorker: true,
+          initialQuality: 0.82,
+        }).then((compressed) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result as string;
+            if (captureSteps && onStepComplete) {
+              onStepComplete(currentStep, base64);
+            } else {
+              onCaptureAction(base64);
+            }
+            setTimeout(() => setCompressing(false), 800);
+          };
+          reader.onerror = () => {
+            toast.error("Could not read image");
+            setCompressing(false);
+          };
+          reader.readAsDataURL(compressed);
+        }).catch(() => {
+          toast.error("Image processing failed. Please try another photo.");
+          setCompressing(false);
+        });
       },
       "image/jpeg",
-      0.85   // 0.85 is near-lossless for skin analysis, ~30% smaller than 0.92
+      0.85
     );
   };
+
+  const isMultiStep = captureSteps && captureSteps.length > 0;
+  const stepHint = isMultiStep
+    ? captureSteps[currentStep]?.hint ?? "Align face in frame"
+    : "Align face in frame";
+  const stepLabel = isMultiStep
+    ? captureSteps[currentStep]?.label ?? ""
+    : "";
 
   const isDisabled = Boolean(disabled) || compressing;
 
@@ -282,11 +337,31 @@ export function CameraCapture({ onCaptureAction, disabled }: CameraCaptureProps)
             animate={{ y: 0, opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ delay: 0.3 }}
-            className="absolute top-5 inset-x-0 flex justify-center z-30 pointer-events-none"
+            className="absolute top-5 inset-x-0 flex flex-col items-center gap-2 z-30 pointer-events-none"
           >
+            {/* Step progress dots for multi-step */}
+            {isMultiStep && (
+              <div className="flex items-center gap-2">
+                {captureSteps.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === currentStep
+                        ? "w-6 bg-[#A377D2]"
+                        : i < currentStep
+                        ? "w-3 bg-[#A377D2]/50"
+                        : "w-3 bg-white/30"
+                    }`}
+                  />
+                ))}
+                <span className="text-white/70 text-[11px] font-semibold ml-1">
+                  {currentStep + 1}/{captureSteps.length}
+                </span>
+              </div>
+            )}
             <div className="px-4 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/10">
               <p className="text-white/90 text-[13px] font-medium tracking-wide">
-                {compressing ? "Analysing…" : "Align face in frame"}
+                {compressing ? "Captured" : stepHint}
               </p>
             </div>
           </motion.div>

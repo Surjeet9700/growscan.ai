@@ -1,26 +1,19 @@
 // app/api/analyse/full/route.ts
 // SECURITY: Requires a paymentId verified in MongoDB VerifiedPayment collection.
 // A client cannot bypass this with an arbitrary string.
-import { genAI } from "@/lib/gemini";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { dbConnect } from "@/lib/mongodb";
 import VerifiedPayment from "@/models/VerifiedPayment";
 import Scan from "@/models/Scan";
 import type { FullReportResult } from "@/lib/types";
-import { safeParseJSON } from "@/lib/responseParser";
 import { FullAnalyseSchema } from "@/lib/schemas";
-import { analyseWithOpenRouter } from "@/lib/openrouter";
 import { formatScanContextForPrompt } from "@/lib/scan-context";
+import { analyse, AiEngineException } from "@/lib/ai-engine";
+import { notifyFullReportReady } from "@/lib/notification-triggers";
 import crypto from "crypto";
 
 export const maxDuration = 60;
-
-const MODEL_PRIORITY = [
-  "gemini-2.5-flash",      // best vision + reasoning for paid report
-  "gemini-2.5-flash-lite", // faster fallback
-  "gemini-2.0-flash",      // legacy final fallback
-];
 
 // ── Gemini native JSON schema ─────────────────────────────────────────────────
 const RESPONSE_SCHEMA = {
@@ -112,6 +105,19 @@ const RESPONSE_SCHEMA = {
       },
     },
     lifestyle_tips: { type: "ARRAY", items: { type: "STRING" } },
+    root_causes: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          cause: { type: "STRING" },
+          likelihood: { type: "STRING", enum: ["high", "moderate", "low"] },
+          explanation: { type: "STRING" },
+          action: { type: "STRING" },
+        },
+        required: ["cause", "likelihood", "explanation", "action"],
+      },
+    },
     recheck_in_weeks: { type: "INTEGER" },
     summary: { type: "STRING" },
     error: { type: "STRING", nullable: true },
@@ -121,7 +127,7 @@ const RESPONSE_SCHEMA = {
     "fitzpatrick_scale", "iga_acne_scale",
     "skin_age_estimate","dermal_indices","strengths","priority_ingredients",
     "morning_routine_order","night_routine_order","lifestyle_tips",
-    "recheck_in_weeks","summary",
+    "root_causes","recheck_in_weeks","summary",
   ],
 } as const;
 
@@ -144,6 +150,24 @@ Assess:
 - dehydration and barrier stress
 - dark circles and under-eye fatigue markers
 - textural unevenness and visible ageing markers
+- root cause analysis of visible skin concerns
+
+## Root Cause Analysis
+Identify 3-5 likely root causes behind the visible skin condition. Consider:
+- **Hormonal**: Jawline/chin breakouts, cyclical patterns, oily T-zone, PCOS markers
+- **Diet-related**: Dairy/sugar-linked breakouts, inflammation, dullness, gut-skin axis signs
+- **Stress-induced**: Forehead breakouts, tension areas, fatigue markers, cortisol signs
+- **Environmental**: Pollution damage, UV exposure, climate-related dehydration, hard water
+- **Product-related**: Clogged pores from comedogenic products, irritation patterns, over-exfoliation
+- **Barrier damage**: Compromised moisture barrier, sensitivity, tightness, transepidermal water loss
+- **Genetic predisposition**: Fitzpatrick type tendencies, pore size, sebum patterns, melasma tendency
+- **Lifestyle factors**: Sleep quality signs, screen time effects, mask-wearing patterns
+
+For each root cause:
+- cause: Short label (e.g., "Hormonal imbalance")
+- likelihood: "high", "moderate", or "low" based on visible evidence strength
+- explanation: 1-2 sentences connecting specific visible signs to this cause
+- action: One specific, actionable recommendation
 
 ## Report Standard
 - This should feel premium and structured enough to justify a paid result.
@@ -204,7 +228,6 @@ export async function POST(req: NextRequest) {
 
     // 3. Build personalization context
     const userContext = formatScanContextForPrompt(context ?? null);
-
     const finalPrompt = userContext
       ? `${FULL_PROMPT}\n\n## Patient Context\n${userContext}`
       : FULL_PROMPT;
@@ -224,85 +247,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Generate with model fallback chain
-    const imageData = {
-      inlineData: {
-        mimeType: "image/jpeg" as const,
-        data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
-      },
-    };
-
-    let data: FullReportResult | null = null;
+    // 5. AI analysis via deep module
+    let data: FullReportResult;
     let modelUsed = "unknown";
-
-    for (const modelName of MODEL_PRIORITY) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            temperature: 0.2,
-            topP: 0.85,
-            maxOutputTokens: 8192, // Increased to prevent JSON truncation on long routines
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA as any,
-          },
-        });
-
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("MODEL_TIMEOUT")), 50000)
-        );
-
-        const result = await Promise.race([
-          model.generateContent([finalPrompt, imageData]),
-          timeoutPromise,
-        ]) as any;
-
-        const text = result.response.text();
-        data = safeParseJSON<FullReportResult>(text);
-
-        if (!data?.skin_type && !data?.error) {
-          throw new Error("Model returned incomplete data");
-        }
-
-        modelUsed = modelName;
-        break;
-
-      } catch (err: any) {
-        const msg = String(err?.message ?? "");
-        
-        console.warn(`[Gemini Full] ${modelName} failed (${msg}), trying next…`);
-        continue;
-      }
-    }
-
-    // 6. OpenRouter final fallback
-    if (!data) {
-      console.warn("[Full Analysis] All Gemini models exhausted. Trying OpenRouter…");
-      try {
-        const text = await analyseWithOpenRouter(finalPrompt, imageBase64);
-        data = safeParseJSON<FullReportResult>(text);
-        modelUsed = "openrouter-fallback";
-
-        if (!data?.skin_type && !data?.error) {
-          throw new Error("OpenRouter returned incomplete data");
-        }
-      } catch (orErr: any) {
-        console.error("[OpenRouter Fallback] All models exhausted:", orErr.message);
+    try {
+      const result = await analyse<FullReportResult>({
+        imageBase64,
+        prompt: finalPrompt,
+        schema: RESPONSE_SCHEMA as Record<string, unknown>,
+        temperature: 0.2,
+        maxTokens: 8192,
+        timeoutMs: 50000,
+        validate: (d) => {
+          const r = d as FullReportResult;
+          return !!(r?.skin_type || r?.error);
+        },
+      });
+      data = result.data;
+      modelUsed = result.modelUsed;
+    } catch (err: unknown) {
+      if (err instanceof AiEngineException && err.code === "QUOTA_EXCEEDED") {
         return NextResponse.json(
           { error: "AI engine is at capacity. Payment is NOT charged. Please try again shortly." },
           { status: 503 }
         );
       }
+      throw err;
     }
 
-    // 7. Attach response metadata
+    // 6. Attach response metadata
     const processingTimeMs = Date.now() - startTime;
     const enrichedData: FullReportResult = {
-      ...data!,
+      ...data,
       _meta: { request_id: requestId, processing_time_ms: processingTimeMs, model_used: modelUsed },
     };
 
-    // 8. Persist the report and source image before returning so /result/full
+    // 7. Persist the report and source image before returning so /result/full
     // can reliably load the latest record from MongoDB immediately.
     const savedScan = await Scan.create({
       userId,
@@ -314,6 +294,8 @@ export async function POST(req: NextRequest) {
         payment_id: paymentId,
       } as Record<string, unknown>,
     });
+
+    notifyFullReportReady(userId).catch(() => {});
 
     return NextResponse.json({
       ...enrichedData,

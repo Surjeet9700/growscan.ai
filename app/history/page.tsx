@@ -486,11 +486,11 @@ export default function HistoryPage() {
               </div>
               <div>
                 <p className="text-[15px] font-black text-[#1A1A1A]">Progress journal</p>
-                <p className="text-[11px] text-[#9A9A9A]">Public launch keeps the focus on scans and consistency.</p>
+                <p className="text-[11px] text-[#9A9A9A]">Your skin story, week by week.</p>
               </div>
             </div>
             <p className="text-[13px] leading-relaxed text-[#5D5766]">
-              Use this screen as the habit layer: repeat scans weekly, mark daily routine completion, and watch the monthly glow trend stabilize before adding shopping.
+              Scan weekly, tick off daily routine steps, and track your glow score trend over time. Consistency is what turns AI advice into visible results.
             </p>
           </div>
         </motion.div>

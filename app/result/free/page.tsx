@@ -21,6 +21,8 @@ import { fetchUserState } from "@/lib/user-state";
 import { FEATURES } from "@/lib/features";
 import { ClimateStressCard } from "@/components/ClimateStressCard";
 import { useClimateContext } from "@/lib/use-climate-context";
+import { SkinRoadmap } from "@/components/SkinRoadmap";
+import { ShareScoreCard } from "@/components/ShareScoreCard";
 
 // ── Amazon product card type ──────────────────────────────────────────────────
 interface AmazonCard {
@@ -363,6 +365,48 @@ export default function FreeResultPage() {
         </div>
       </motion.div>
 
+      {/* ── ROOT CAUSES ──────────────────────────────────────────────────── */}
+      {result.root_causes && result.root_causes.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="px-5 mb-5"
+        >
+          <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <p className="text-[14px] font-black text-[#1A1A1A] mb-3">Likely Root Causes</p>
+            <div className="space-y-3">
+              {result.root_causes.slice(0, 3).map((rc, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-[14px] bg-[#FAF7FE] px-4 py-3">
+                  <div
+                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                      rc.likelihood === "high"
+                        ? "bg-[#A377D2]"
+                        : rc.likelihood === "moderate"
+                        ? "bg-amber-400"
+                        : "bg-gray-300"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-bold text-[#1A1A1A]">{rc.cause}</p>
+                      <span className="text-[10px] font-medium text-[#9A9A9A] capitalize">{rc.likelihood}</span>
+                    </div>
+                    <p className="text-[11px] text-[#666] mt-0.5 leading-relaxed">{rc.explanation}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-center">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F3EEFB]/50 rounded-full">
+                <Lock className="w-3 h-3 text-[#A377D2]" />
+                <span className="text-[11px] font-semibold text-[#A377D2]">Full root cause analysis in Pro</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* ── SKIN PROGRESS ─────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
@@ -453,6 +497,31 @@ export default function FreeResultPage() {
           </div>
         </motion.div>
       ) : null}
+
+      {/* ── SKIN ROADMAP ──────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="px-5 mb-5"
+      >
+        <SkinRoadmap currentScore={result.glow_score} />
+      </motion.div>
+
+      {/* ── SHARE SCORE ───────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.38 }}
+        className="px-5 mb-5"
+      >
+        <ShareScoreCard
+          score={Math.round(result.glow_score * 10)}
+          skinType={result.skin_type}
+          topConcern={result.top_concern}
+          imageBase64={scanImage}
+        />
+      </motion.div>
 
       {/* ── UPGRADE TO FULL REPORT ──────────────────────────────────────── */}
       <motion.div

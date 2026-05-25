@@ -19,6 +19,7 @@ const nextConfig = {
   // Allow ngrok and local network access to Next.js dev HMR
   allowedDevOrigins: [
     "10.58.156.88",
+    "10.195.181.88",
     "*.ngrok-free.app",
     "*.ngrok.io",
   ],

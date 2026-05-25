@@ -4,17 +4,32 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Bookmark, ChevronRight, ScanSearch, ShoppingBag, Heart, ShieldCheck, Sparkles, SunMedium } from "lucide-react";
+import { Bell, ChevronRight, ShoppingBag, Heart, Hand } from "lucide-react";
 import { fetchUserState } from "@/lib/user-state";
 import { FEATURES } from "@/lib/features";
 import { ClimateStressCard } from "@/components/ClimateStressCard";
 import { useClimateContext } from "@/lib/use-climate-context";
+import { PastScansCarousel } from "@/components/PastScansCarousel";
 
 interface LastScan {
   glow_score: number;
   skin_type: string;
   top_concern: string;
   timestamp: number;
+}
+
+interface RoutineItems {
+  moisturizer: boolean;
+  serum: boolean;
+  sunscreen: boolean;
+  nightCream: boolean;
+}
+
+function toDateString(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 // ── Circular progress ring ────────────────────────────────────────────────────
@@ -90,46 +105,41 @@ function ProductCard({
   );
 }
 
-// ── Watchlist Item ────────────────────────────────────────────────────────────
-function WatchlistItem({
-  title,
-  subtitle,
-  pct,
-  delay,
+// ── Routine Item (toggleable) ────────────────────────────────────────────────
+function RoutineItem({
+  name,
+  fieldId,
+  isDone,
+  onToggle,
+  isUpdating,
 }: {
-  title: string;
-  subtitle: string;
-  pct: number;
-  delay: number;
+  name: string;
+  fieldId: string;
+  isDone: boolean;
+  onToggle: (field: string, val: boolean) => void;
+  isUpdating: boolean;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, ease: "easeOut" }}
-      className="flex items-center gap-4 py-3.5 border-b border-black/[0.04] last:border-none"
-    >
-      {/* Thumbnail */}
-      <div className="w-12 h-12 bg-[#F3EEFB] rounded-[14px] flex items-center justify-center shrink-0">
-        <Heart className="w-5 h-5 text-[#A377D2]/60" />
+    <div className="flex items-center gap-3 py-3.5 border-b border-black/[0.04] last:border-none">
+      <button
+        disabled={isUpdating}
+        onClick={() => onToggle(fieldId, !isDone)}
+        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors focus:outline-none ${
+          isDone ? "border-[#A377D2] bg-[#A377D2]" : "border-black/20 bg-transparent"
+        } ${isUpdating ? "opacity-50" : ""}`}
+      >
+        {isDone && (
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+      <div className="flex-1">
+        <p className={`text-[13px] font-semibold transition-colors ${isDone ? "text-[#A377D2] line-through opacity-70" : "text-[#1A1A1A]"}`}>
+          {name}
+        </p>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-[#1A1A1A] leading-tight">{title}</p>
-        <p className="text-[11px] text-[#9A9A9A] mt-0.5">{subtitle}</p>
-        {/* Mini progress */}
-        <div className="mt-2 h-1 bg-black/[0.06] rounded-full overflow-hidden w-24">
-          <motion.div
-            className="h-full bg-[#A377D2] rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ delay: delay + 0.2, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          />
-        </div>
-      </div>
-      <div className="w-7 h-7 rounded-full bg-[#F3EEFB] flex items-center justify-center shrink-0">
-        <ChevronRight className="w-4 h-4 text-[#A377D2]" />
-      </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -137,7 +147,11 @@ function WatchlistItem({
 export default function HomePage() {
   const { user } = useUser();
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
+  const [routine, setRoutine] = useState<RoutineItems>({ moisturizer: false, serum: false, sunscreen: false, nightCream: false });
+  const [updatingRoutine, setUpdatingRoutine] = useState<string | null>(null);
   const { climate, loading: climateLoading, error: climateError, refresh: refreshClimate } = useClimateContext();
+
+  const todayStr = toDateString(new Date());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -154,15 +168,48 @@ export default function HomePage() {
       })
       .catch(() => {});
 
+    fetch(`/api/routine?startDate=${todayStr}&endDate=${todayStr}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.routines?.length > 0) {
+          setRoutine(data.routines[0].items);
+        }
+      })
+      .catch(() => {});
+
     return () => controller.abort();
-  }, []);
+  }, [todayStr]);
+
+  const handleRoutineToggle = async (field: string, value: boolean) => {
+    setUpdatingRoutine(field);
+    try {
+      const res = await fetch("/api/routine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateString: todayStr, field, value }),
+      });
+      const data = await res.json();
+      if (data.success && data.routine) {
+        setRoutine(data.routine.items);
+      }
+    } catch {
+    } finally {
+      setUpdatingRoutine(null);
+    }
+  };
 
   const firstName = user?.firstName ?? "Friend";
   const today = new Date().toLocaleDateString("en-US", {
     day: "numeric", month: "long",
   });
 
-  const routinePct = lastScan ? 40 : 0;
+  let routinesCompleted = 0;
+  if (routine.moisturizer) routinesCompleted++;
+  if (routine.serum) routinesCompleted++;
+  if (routine.sunscreen) routinesCompleted++;
+  if (routine.nightCream) routinesCompleted++;
+  const routinePct = (routinesCompleted / 4) * 100;
+
   const skinScore = lastScan ? Math.round(lastScan.glow_score * 10) : null;
   const scanAgo = lastScan
     ? (() => {
@@ -178,10 +225,11 @@ export default function HomePage() {
     { name: "SPF 50+ Serum", brand: "Round Lab", price: "₹950" },
   ];
 
-  const WATCHLIST = [
-    { title: "Morning Routine",   subtitle: "Cleanser → Toner → Serum → SPF", pct: 60 },
-    { title: "Evening Routine",   subtitle: "Oil cleanse → Retinol → Moisturizer", pct: 35 },
-    { title: "Weekly Treatment",  subtitle: "Exfoliate → Sheet Mask → Gua Sha", pct: 20 },
+  const ROUTINE_LIST = [
+    { id: "moisturizer", name: "Apply Moisturizer" },
+    { id: "serum",       name: "Vitamin C Serum" },
+    { id: "sunscreen",   name: "SPF 50+ Sunscreen" },
+    { id: "nightCream",  name: "Night Repair Cream" },
   ];
 
   return (
@@ -209,57 +257,13 @@ export default function HomePage() {
         </div>
         {/* Actions */}
         <div className="flex items-center gap-2.5">
-          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-            <Bookmark className="w-4.5 h-4.5 text-[#1A1A1A]" strokeWidth={1.75} />
-          </button>
-          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-            <Bell className="w-4.5 h-4.5 text-[#1A1A1A]" strokeWidth={1.75} />
-          </button>
+          <Link href="/history">
+            <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+              <Bell className="w-[18px] h-[18px] text-[#1A1A1A]" strokeWidth={1.75} />
+            </button>
+          </Link>
         </div>
       </div>
-
-      {/* ── TAGLINE ─────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="px-5 mt-1 mb-5"
-      >
-        <div className="rounded-[32px] bg-[linear-gradient(145deg,#1B1722_0%,#2C233A_42%,#A377D2_100%)] p-6 text-white shadow-[0_18px_50px_rgba(72,41,109,0.26)]">
-          <div className="flex items-center justify-between mb-6">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/85">
-              <Sparkles className="w-3 h-3" />
-              India Skin AI
-            </span>
-            <span className="text-[11px] font-semibold text-white/70">30-sec scan</span>
-          </div>
-          <p className="text-[24px] font-black leading-[1.15] tracking-tight">
-            Premium skin scanning,
-            <br />
-            built for Indian users.
-          </p>
-          <p className="mt-3 max-w-[280px] text-[13px] leading-relaxed text-white/72">
-            Read glow score, visible concern signals, and climate-aware routine guidance without clinic-style friction.
-          </p>
-          <div className="mt-6 grid grid-cols-3 gap-2">
-            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
-              <ShieldCheck className="mb-2 h-4 w-4 text-white/90" />
-              <p className="text-[11px] font-bold">Private</p>
-              <p className="text-[10px] text-white/60">Account-linked results</p>
-            </div>
-            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
-              <SunMedium className="mb-2 h-4 w-4 text-white/90" />
-              <p className="text-[11px] font-bold">India-first</p>
-              <p className="text-[10px] text-white/60">UV, humidity, PIH aware</p>
-            </div>
-            <div className="rounded-[20px] bg-white/10 p-3 backdrop-blur-sm">
-              <ScanSearch className="mb-2 h-4 w-4 text-white/90" />
-              <p className="text-[11px] font-bold">Fast</p>
-              <p className="text-[10px] text-white/60">One scan, instant readout</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 14 }}
@@ -276,6 +280,9 @@ export default function HomePage() {
           subtitle="Live local conditions"
         />
       </motion.div>
+
+      {/* ── PAST SCANS CAROUSEL ──────────────────────────────────────────── */}
+      <PastScansCarousel />
 
       {/* ── DAILY ROUTINE + SCAN RESULT CARD ROW ─────────────────────── */}
       <motion.div
@@ -356,7 +363,43 @@ export default function HomePage() {
         </Link>
       </motion.div>
 
-      {FEATURES.commerce ? (
+      {/* ── PALM READING CARD ──────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.13 }}
+        className="px-5 mb-5"
+      >
+        <Link href="/palm">
+          <div
+            className="rounded-[24px] p-5 relative overflow-hidden active:scale-[0.97] transition-transform"
+            style={{
+              background: "linear-gradient(135deg, #1B1722 0%, #2C233A 50%, #A377D2 100%)",
+            }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#A377D2]/15 rounded-full blur-3xl" />
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Hand className="w-4 h-4 text-[#A377D2]" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">New</span>
+                </div>
+                <p className="text-[18px] font-black text-white leading-tight mb-1">
+                  AI Palm Reading
+                </p>
+                <p className="text-[12px] text-white/60">
+                  Discover your hidden traits through palm analysis
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                <ChevronRight className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
+      {FEATURES.commerce && (
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
@@ -376,32 +419,6 @@ export default function HomePage() {
             ))}
           </div>
         </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="px-5 mb-5"
-        >
-          <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[16px] font-black text-[#1A1A1A]">Why GlowScan feels premium</p>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#A377D2]">Launch Focus</span>
-            </div>
-            <div className="space-y-3">
-              {[
-                "Mobile-first flows that feel native even before install.",
-                "AI outputs tuned for Indian climate, pigmentation, and barrier concerns.",
-                "Report-first experience before commerce, so trust is built before monetization."
-              ].map((item, index) => (
-                <div key={index} className="flex items-start gap-3 rounded-[18px] bg-[#FAF7FE] px-4 py-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-[#A377D2]" />
-                  <p className="text-[13px] font-medium text-[#4B4457] leading-relaxed">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
       )}
 
       {/* ── TODAY'S SELF-CARE WATCHLIST ──────────────────────────────── */}
@@ -414,7 +431,7 @@ export default function HomePage() {
         <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[16px] font-black text-[#1A1A1A]">
-              Today's Self-Care Watchlist
+              Today's Routine
             </p>
             <Link href="/history">
               <span className="text-[12px] font-semibold text-[#A377D2]">See all</span>
@@ -422,8 +439,15 @@ export default function HomePage() {
           </div>
 
           <div>
-            {WATCHLIST.map((item, i) => (
-              <WatchlistItem key={i} {...item} delay={0.28 + i * 0.07} />
+            {ROUTINE_LIST.map((r) => (
+              <RoutineItem
+                key={r.id}
+                name={r.name}
+                fieldId={r.id}
+                isDone={routine[r.id as keyof RoutineItems]}
+                onToggle={handleRoutineToggle}
+                isUpdating={updatingRoutine === r.id}
+              />
             ))}
           </div>
         </div>
@@ -471,9 +495,11 @@ export default function HomePage() {
                 Personalized product matching
               </li>
             </ul>
-            <button className="w-full py-3.5 rounded-full bg-white text-[#A377D2] font-black text-[14px] shadow-sm active:scale-[0.98] transition-transform">
-              Subscribe Now
-            </button>
+            <Link href="/scan">
+              <button className="w-full py-3.5 rounded-full bg-white text-[#A377D2] font-black text-[14px] shadow-sm active:scale-[0.98] transition-transform">
+                Subscribe Now
+              </button>
+            </Link>
           </div>
 
           {/* Pay Per Report */}

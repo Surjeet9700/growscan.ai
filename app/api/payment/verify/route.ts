@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { dbConnect } from "@/lib/mongodb";
 import VerifiedPayment from "@/models/VerifiedPayment";
 import { PaymentVerifySchema } from "@/lib/schemas";
+import { notifyPaymentConfirmed } from "@/lib/notification-triggers";
 
 /** Cross-verify payment status with Razorpay REST API */
 async function verifyPaymentWithRazorpay(paymentId: string): Promise<{
@@ -50,6 +51,13 @@ async function verifyPaymentWithRazorpay(paymentId: string): Promise<{
 export async function POST(req: NextRequest) {
   try {
     const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     const json = await req.json();
 
     // 1. Validate input
@@ -65,16 +73,9 @@ export async function POST(req: NextRequest) {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      userId: bodyUserId,
     } = result.data;
 
-    const userId = clerkUserId ?? bodyUserId;
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const userId = clerkUserId;
 
     // 2. HMAC signature verification (Razorpay Standard Checkout requirement)
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -93,10 +94,17 @@ export async function POST(req: NextRequest) {
       .digest("hex");
 
     // Use timing-safe comparison to prevent timing attacks
-    const signaturesMatch = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, "hex"),
-      Buffer.from(razorpay_signature, "hex")
-    );
+    const expectedBuf = Buffer.from(expectedSignature, "hex");
+    const receivedBuf = Buffer.from(razorpay_signature, "hex");
+
+    if (expectedBuf.length !== receivedBuf.length) {
+      return NextResponse.json(
+        { success: false, error: "Invalid signature format" },
+        { status: 400 }
+      );
+    }
+
+    const signaturesMatch = crypto.timingSafeEqual(expectedBuf, receivedBuf);
 
     if (!signaturesMatch) {
       console.warn(
@@ -127,9 +135,9 @@ export async function POST(req: NextRequest) {
       paymentAmount   = razorpayPayment.amount;
       paymentCurrency = razorpayPayment.currency;
 
-    } catch (apiErr: any) {
+    } catch (apiErr: unknown) {
       // If Razorpay API is unreachable, fall back to HMAC-only (don't block the user)
-      console.warn("[Payment] Razorpay API cross-verify failed (falling back to HMAC-only):", apiErr.message);
+      console.warn("[Payment] Razorpay API cross-verify failed (falling back to HMAC-only):", (apiErr as Error).message);
     }
 
     // 4. Persist verified payment to MongoDB
@@ -142,13 +150,15 @@ export async function POST(req: NextRequest) {
       currency:   paymentCurrency,
     });
 
+    notifyPaymentConfirmed(userId).catch(() => {});
+
     return NextResponse.json({ success: true });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Payment verify] Unhandled error:", error);
 
     // Handle duplicate payment ID gracefully (idempotency)
-    if (error?.code === 11000) {
+    if ((error as { code?: number })?.code === 11000) {
       return NextResponse.json({ success: true }); // Already verified
     }
 
